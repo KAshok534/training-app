@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Btn, Spinner } from '../components/UI';
+import { Btn } from '../components/UI';
 import Icon from '../components/Icon';
 
 const LoginScreen: React.FC = () => {

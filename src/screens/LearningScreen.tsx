@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { MODULES_DATA } from '../data';
-import { ProgressBar, Card } from '../components/UI';
+import { Card } from '../components/UI';
 import Icon from '../components/Icon';
 import type { CourseModule } from '../types';
 

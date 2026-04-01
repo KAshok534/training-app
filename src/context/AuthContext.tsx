@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
+import { isSupabaseConfigured } from '../lib/supabase';
 import type { User } from '../types';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -64,30 +64,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setLoading(false);
   }, [isDemo]);
-
-  // ── Load user profile from Supabase ───────────────────────────────────────
-  // TODO: Call this after auth.getSession() or onAuthStateChange
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const _loadProfile = useCallback(async (userId: string) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
-
-    if (data) {
-      setUser({
-        id: data.id,
-        name: data.name,
-        email: data.email,
-        phone: data.phone,
-        role: data.role,
-        organization: data.organization,
-        designation: data.designation,
-      });
-    }
-    setLoading(false);
-  }, []);
 
   const signIn = useCallback(async (email: string, password: string): Promise<string | null> => {
     if (isDemo) {

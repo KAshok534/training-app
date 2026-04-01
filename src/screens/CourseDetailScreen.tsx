@@ -35,7 +35,7 @@ const CourseDetailScreen: React.FC<Props> = ({ course, onBack, onNavigate }) => 
   };
 
   const inp: React.CSSProperties = { width:'100%', padding:'13px 14px', borderRadius:12, border:'1.5px solid var(--sand)', background:'var(--white)', fontSize:14, fontFamily:"'DM Sans', sans-serif", outline:'none' };
-  const lbl: React.CSSProperties = { fontSize:11, fontWeight:700, color:'var(--moss)', textTransform:'uppercase', letterSpacing:'0.08em', display:'block', marginBottom:6 };
+
   const gst = Math.round(course.fee*0.18);
 
   return (
