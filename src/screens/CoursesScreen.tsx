@@ -1,14 +1,56 @@
-import React, { useState } from 'react';
-import { COURSES } from '../data';
-import { Badge, ProgressBar, Card } from '../components/UI';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
+import { Badge, ProgressBar, Card, Spinner } from '../components/UI';
 import type { Course, CourseMode } from '../types';
 
 type Filter = 'All' | CourseMode;
 interface Props { onNavigate:(screen:string, data?:unknown)=>void; }
 
+// Map Supabase snake_case columns → TypeScript camelCase interface
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapCourse(row: any): Course {
+  return {
+    id:        row.id,
+    title:     row.title,
+    subtitle:  row.subtitle,
+    duration:  row.duration,
+    fee:       row.fee_inr,
+    feeUsd:    row.fee_usd,
+    hours:     row.hours,
+    seats:     row.seats,
+    filled:    row.filled,
+    mode:      row.mode,
+    startDate: row.start_date,
+    badge:     row.badge,
+    modules:   row.module_count,
+    trainer:   row.trainer,
+    category:  row.category,
+    color:     row.color,
+    icon:      row.icon,
+    topics:    row.topics ?? [],
+  };
+}
+
 const CoursesScreen: React.FC<Props> = ({ onNavigate }) => {
-  const [filter, setFilter] = useState<Filter>('All');
-  const filtered: Course[] = filter==='All' ? COURSES : COURSES.filter(c=>c.mode===filter);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter]   = useState<Filter>('All');
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      const { data, error } = await supabase
+        .from('courses')
+        .select('*')
+        .eq('is_published', true)
+        .order('id', { ascending: true });
+
+      if (!error && data) setCourses(data.map(mapCourse));
+      setLoading(false);
+    };
+    fetchCourses();
+  }, []);
+
+  const filtered = filter === 'All' ? courses : courses.filter(c => c.mode === filter);
 
   return (
     <div className="screen">
@@ -25,11 +67,13 @@ const CoursesScreen: React.FC<Props> = ({ onNavigate }) => {
         </div>
       </div>
 
-      {/* Course cards */}
       <div style={{ padding:'16px' }}>
-        {filtered.map((c,i)=>(
+        {loading ? (
+          <div style={{ display:'flex', justifyContent:'center', paddingTop:60 }}>
+            <Spinner size={32} color="var(--forest)" />
+          </div>
+        ) : filtered.map((c,i)=>(
           <Card key={c.id} onClick={()=>onNavigate('courseDetail',c)} style={{ marginBottom:16, animation:`fadeUp 0.35s ease ${i*0.07}s both` }}>
-            {/* Card hero */}
             <div style={{ background:c.color, padding:'20px', position:'relative', overflow:'hidden' }}>
               <div style={{ position:'absolute', top:-20, right:-20, width:100, height:100, borderRadius:'50%', background:'rgba(255,255,255,0.07)' }}/>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start' }}>
@@ -41,7 +85,6 @@ const CoursesScreen: React.FC<Props> = ({ onNavigate }) => {
                 <div style={{ fontSize:44 }}>{c.icon}</div>
               </div>
             </div>
-            {/* Card body */}
             <div style={{ padding:'16px 20px' }}>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:16, textAlign:'center' }}>
                 {([['Duration',c.duration],['Hours',c.hours],['Mode',c.mode]] as [string,string][]).map(([l,v])=>(
@@ -54,7 +97,7 @@ const CoursesScreen: React.FC<Props> = ({ onNavigate }) => {
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                 <div>
                   <div style={{ fontFamily:"'Playfair Display', serif", fontSize:24, fontWeight:900, color:'var(--forest)' }}>₹{c.fee.toLocaleString()}</div>
-                  <div style={{ fontSize:11, color:'#999' }}>or ${c.feeUsd} USD · {c.seats-c.filled} seats left</div>
+                  <div style={{ fontSize:11, color:'#999' }}>or ${c.feeUsd} USD · {c.seats - c.filled} seats left</div>
                 </div>
                 <div style={{ width:110 }}>
                   <ProgressBar value={c.filled} max={c.seats}/>

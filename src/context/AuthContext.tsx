@@ -1,18 +1,14 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { isSupabaseConfigured } from '../lib/supabase';
+import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import type { User } from '../types';
-
-// ─── Types ──────────────────────────────────────────────────────────────────
 
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
-  isDemo: boolean;  // true when running without real Supabase credentials
+  isDemo: boolean;
 }
-
-// ─── Mock user for demo mode ─────────────────────────────────────────────────
 
 const DEMO_USER: User = {
   id: 'demo-user-001',
@@ -24,8 +20,6 @@ const DEMO_USER: User = {
   designation: 'Environmental Consultant',
 };
 
-// ─── Context ─────────────────────────────────────────────────────────────────
-
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -33,16 +27,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const isDemo = !isSupabaseConfigured;
 
+  const loadProfile = useCallback(async (userId: string) => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+
+    if (data) {
+      setUser({
+        id:           data.id,
+        name:         data.name,
+        email:        data.email,
+        phone:        data.phone,
+        role:         data.role,
+        organization: data.organization,
+        designation:  data.designation,
+      });
+    }
+    setLoading(false);
+  }, []);
+
   useEffect(() => {
     if (isDemo) {
-      // Demo mode — no Supabase, no auth required
       setLoading(false);
       return;
     }
 
-    // ── REAL AUTH: check existing session ─────────────────────────────────
-    // TODO: Uncomment when Supabase is connected
-    /*
+    // Check existing session on app load
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         loadProfile(session.user.id);
@@ -51,45 +63,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
+    // Listen for login/logout events
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session?.user) {
         loadProfile(session.user.id);
       } else {
         setUser(null);
+        setLoading(false);
       }
     });
 
     return () => subscription.unsubscribe();
-    */
-
-    setLoading(false);
-  }, [isDemo]);
+  }, [isDemo, loadProfile]);
 
   const signIn = useCallback(async (email: string, password: string): Promise<string | null> => {
     if (isDemo) {
-      // Demo mode: accept any credentials
       setUser(DEMO_USER);
       return null;
     }
-
-    // ── REAL SIGN IN ─────────────────────────────────────────────────────────
-    // TODO: Uncomment when Supabase is connected
-    /*
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return error.message;
-    return null;
-    */
-
-    // Temporary passthrough
-    console.log('Sign in:', email, password);
-    setUser(DEMO_USER);
     return null;
   }, [isDemo]);
 
   const signOut = useCallback(async () => {
     if (!isDemo) {
-      // TODO: Uncomment when Supabase is connected
-      // await supabase.auth.signOut();
+      await supabase.auth.signOut();
     }
     setUser(null);
   }, [isDemo]);
