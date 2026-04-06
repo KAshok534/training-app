@@ -15,7 +15,16 @@ const LoginScreen: React.FC<Props> = ({ onShowRegister }) => {
   const handleLogin = async () => {
     setLoading(true); setError('');
     const err = await signIn(email, password);
-    if (err) { setError(err); setLoading(false); }
+    if (err) {
+      // Make Supabase's technical error messages friendlier
+      if (err.toLowerCase().includes('email not confirmed'))
+        setError('Please verify your email first. Check your inbox for the verification link.');
+      else if (err.toLowerCase().includes('invalid login'))
+        setError('Incorrect email or password. Please try again.');
+      else
+        setError(err);
+      setLoading(false);
+    }
   };
 
   const inp: React.CSSProperties = {

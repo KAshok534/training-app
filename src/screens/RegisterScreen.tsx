@@ -92,14 +92,25 @@ const RegisterScreen: React.FC<Props> = ({ onShowLogin }) => {
 
         {success ? (
           <div style={{ textAlign:'center', paddingTop:20 }}>
-            <div style={{ fontSize:64, marginBottom:16 }}>✅</div>
+            <div style={{ fontSize:64, marginBottom:16 }}>📧</div>
             <div style={{ fontFamily:"'Playfair Display', serif", fontSize:24, fontWeight:900, color:'var(--forest)', marginBottom:10 }}>
-              Registration Successful!
+              Verify Your Email
             </div>
-            <div style={{ fontSize:14, color:'#888', lineHeight:1.6, marginBottom:28 }}>
-              Your account has been created.<br/>You can now log in.
+            <div style={{ fontSize:14, color:'#555', lineHeight:1.7, marginBottom:16 }}>
+              We've sent a verification link to
+            </div>
+            <div style={{ fontSize:15, fontWeight:700, color:'var(--pine)', marginBottom:16 }}>
+              {form.email}
+            </div>
+            <div style={{ fontSize:13, color:'#888', lineHeight:1.7, marginBottom:28, padding:'14px 16px', background:'rgba(45,90,61,0.06)', borderRadius:14, border:'1px dashed var(--sage)', textAlign:'left' }}>
+              1. Open your email inbox<br/>
+              2. Click the <strong>verification link</strong> from AIWMR<br/>
+              3. Come back here and log in
             </div>
             <Btn onClick={onShowLogin}>Go to Login</Btn>
+            <div style={{ marginTop:16, fontSize:12, color:'#aaa' }}>
+              Didn't receive it? Check your spam folder.
+            </div>
           </div>
         ) : (
           <>
