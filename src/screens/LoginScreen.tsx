@@ -3,10 +3,12 @@ import { useAuth } from '../context/AuthContext';
 import { Btn } from '../components/UI';
 import Icon from '../components/Icon';
 
-const LoginScreen: React.FC = () => {
+interface Props { onShowRegister: () => void; }
+
+const LoginScreen: React.FC<Props> = ({ onShowRegister }) => {
   const { signIn, isDemo } = useAuth();
-  const [email, setEmail]     = useState('student@example.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail]     = useState(isDemo ? 'student@example.com' : '');
+  const [password, setPassword] = useState(isDemo ? 'password123' : '');
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
 
@@ -62,7 +64,7 @@ const LoginScreen: React.FC = () => {
         </Btn>
         <div style={{ textAlign:'center', marginTop:24, fontSize:14, color:'#888' }}>
           New to AIWMR?{' '}
-          <span style={{ color:'var(--pine)', fontWeight:700, cursor:'pointer' }}>Register here</span>
+          <span onClick={onShowRegister} style={{ color:'var(--pine)', fontWeight:700, cursor:'pointer' }}>Register here</span>
         </div>
         {isDemo && (
           <div style={{ marginTop:28, padding:16, background:'rgba(45,90,61,0.06)', borderRadius:14, border:'1px dashed var(--sage)' }}>

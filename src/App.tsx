@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import SplashScreen       from './screens/SplashScreen';
 import LoginScreen        from './screens/LoginScreen';
+import RegisterScreen     from './screens/RegisterScreen';
 import HomeScreen         from './screens/HomeScreen';
 import CoursesScreen      from './screens/CoursesScreen';
 import CourseDetailScreen from './screens/CourseDetailScreen';
@@ -18,7 +19,8 @@ interface NavState { screen: ScreenId; data?: Course; }
 
 const InnerApp: React.FC = () => {
   const { user, loading, isDemo } = useAuth();
-  const [splash, setSplash] = useState(true);
+  const [splash, setSplash]     = useState(true);
+  const [authScreen, setAuthScreen] = useState<'login'|'register'>('login');
   const [nav, setNav] = useState<NavState>({ screen:'home' });
 
   const navigate = (screen: string, data?: unknown) =>
@@ -32,7 +34,9 @@ const InnerApp: React.FC = () => {
     </div>
   );
 
-  if (!user) return <LoginScreen/>;
+  if (!user) return authScreen === 'register'
+    ? <RegisterScreen onShowLogin={() => setAuthScreen('login')} />
+    : <LoginScreen    onShowRegister={() => setAuthScreen('register')} />;
 
   const activeTab = nav.screen==='courseDetail'?'courses':nav.screen;
 
