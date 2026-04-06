@@ -1,14 +1,44 @@
-import React from 'react';
-import { COURSES } from '../data';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../lib/supabase';
 import { Badge, ProgressBar, Card } from '../components/UI';
 import Icon from '../components/Icon';
 import { useAuth } from '../context/AuthContext';
+import type { Course } from '../types';
 
 interface Props { onNavigate:(screen:string, data?:unknown)=>void; }
 
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good Morning 🌅';
+  if (h < 17) return 'Good Afternoon ☀️';
+  if (h < 21) return 'Good Evening 🌇';
+  return 'Good Night 🌙';
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mapCourse(row: any): Course {
+  return {
+    id: row.id, title: row.title, subtitle: row.subtitle,
+    duration: row.duration, fee: row.fee_inr, feeUsd: row.fee_usd,
+    hours: row.hours, seats: row.seats, filled: row.filled,
+    mode: row.mode, startDate: row.start_date, badge: row.badge,
+    modules: row.module_count, trainer: row.trainer, category: row.category,
+    color: row.color, icon: row.icon, topics: row.topics ?? [],
+  };
+}
+
 const HomeScreen: React.FC<Props> = ({ onNavigate }) => {
   const { user, signOut } = useAuth();
-  const progress = 35; // TODO: fetch from supabase.from('user_progress').select('*').eq('user_id', user.id)
+  const [courses, setCourses] = useState<Course[]>([]);
+  const progress = 35;
+
+  useEffect(() => {
+    supabase.from('courses').select('*').eq('is_published', true)
+      .order('id', { ascending: true }).limit(2)
+      .then(({ data }) => { if (data) setCourses(data.map(mapCourse)); });
+  }, []);
+
+  const displayName = user?.role === 'admin' ? 'Admin' : (user?.name ?? 'Welcome');
 
   return (
     <div className="screen">
@@ -17,9 +47,9 @@ const HomeScreen: React.FC<Props> = ({ onNavigate }) => {
         <div style={{ position:'absolute', top:-50, right:-50, width:200, height:200, borderRadius:'50%', background:'rgba(106,173,120,0.08)' }}/>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', position:'relative' }}>
           <div>
-            <div style={{ color:'var(--sage)', fontSize:13 }}>Good morning 👋</div>
+            <div style={{ color:'var(--sage)', fontSize:13 }}>{getGreeting()}</div>
             <div style={{ fontFamily:"'Playfair Display', serif", color:'white', fontSize:22, fontWeight:700, marginTop:4 }}>
-              {user?.name ?? 'Welcome'}
+              {displayName}
             </div>
           </div>
           <div style={{ display:'flex', gap:10, alignItems:'center' }}>
@@ -87,7 +117,7 @@ const HomeScreen: React.FC<Props> = ({ onNavigate }) => {
           <div style={{ fontFamily:"'Playfair Display', serif", fontSize:20, fontWeight:700 }}>Explore Courses</div>
           <span onClick={()=>onNavigate('courses')} style={{ fontSize:13, color:'var(--pine)', fontWeight:700, cursor:'pointer' }}>See all →</span>
         </div>
-        {COURSES.slice(0,2).map(c=>(
+        {courses.slice(0,2).map(c=>(
           <Card key={c.id} onClick={()=>onNavigate('courseDetail',c)} style={{ marginBottom:12, display:'flex', alignItems:'center', gap:14, padding:16 }}>
             <div style={{ width:52, height:52, borderRadius:14, background:`${c.color}18`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:26, flexShrink:0 }}>{c.icon}</div>
             <div style={{ flex:1, minWidth:0 }}>
