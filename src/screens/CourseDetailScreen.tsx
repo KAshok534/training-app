@@ -82,7 +82,7 @@ const CourseDetailScreen: React.FC<Props> = ({ course, onBack, onNavigate }) => 
         {tab==='overview' && (
           <div style={{ animation:'fadeUp 0.3s ease' }}>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16 }}>
-              {[['💰','Fee',`₹${course.fee.toLocaleString()}`],['👥','Seats Left',`${course.seats-course.filled}/${course.seats}`],['📅','Starts',course.startDate],['📚','Modules',`${course.modules} topics`]].map(([ic,l,v])=>(
+              {[['💰','Fee (INR)',`₹${course.fee.toLocaleString()}`],['💵','Fee (USD)',`$${course.feeUsd}`],['⏱️','Hours',course.hours],['👥','Seats Left',`${course.seats-course.filled}/${course.seats}`],['📅','Starts',course.startDate],['📚','Modules',`${course.modules}`]].map(([ic,l,v])=>(
                 <Card key={l as string} style={{ padding:14 }}>
                   <div style={{ fontSize:20, marginBottom:6 }}>{ic}</div>
                   <div style={{ fontWeight:700, fontSize:15 }}>{v}</div>

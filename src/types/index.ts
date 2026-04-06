@@ -16,7 +16,7 @@ export interface User {
 // ─── Course ──────────────────────────────────────────────────────────────────
 
 export type CourseMode = 'Online' | 'Offline' | 'Hybrid';
-export type CourseCategory = 'Environment' | 'Industrial' | 'Policy' | 'Safety';
+export type CourseCategory = 'Environment' | 'Industrial' | 'Policy' | 'Safety' | 'Health' | 'Energy' | 'Compliance' | 'Sustainability';
 
 export interface Course {
   id: number;
@@ -24,6 +24,8 @@ export interface Course {
   subtitle: string;
   duration: string;
   fee: number;
+  feeUsd: number;
+  hours: string;
   seats: number;
   filled: number;
   mode: CourseMode;

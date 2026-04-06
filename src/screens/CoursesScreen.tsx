@@ -44,7 +44,7 @@ const CoursesScreen: React.FC<Props> = ({ onNavigate }) => {
             {/* Card body */}
             <div style={{ padding:'16px 20px' }}>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:12, marginBottom:16, textAlign:'center' }}>
-                {([['Duration',c.duration],['Modules',`${c.modules} topics`],['Mode',c.mode]] as [string,string][]).map(([l,v])=>(
+                {([['Duration',c.duration],['Hours',c.hours],['Mode',c.mode]] as [string,string][]).map(([l,v])=>(
                   <div key={l}>
                     <div style={{ fontWeight:700, fontSize:14 }}>{v}</div>
                     <div style={{ fontSize:11, color:'#999', marginTop:2 }}>{l}</div>
@@ -54,7 +54,7 @@ const CoursesScreen: React.FC<Props> = ({ onNavigate }) => {
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                 <div>
                   <div style={{ fontFamily:"'Playfair Display', serif", fontSize:24, fontWeight:900, color:'var(--forest)' }}>₹{c.fee.toLocaleString()}</div>
-                  <div style={{ fontSize:11, color:'#999' }}>incl. GST · {c.seats-c.filled} seats left</div>
+                  <div style={{ fontSize:11, color:'#999' }}>or ${c.feeUsd} USD · {c.seats-c.filled} seats left</div>
                 </div>
                 <div style={{ width:110 }}>
                   <ProgressBar value={c.filled} max={c.seats}/>

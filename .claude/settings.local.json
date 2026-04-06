@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(npm run:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(pandoc \"C:\\\\Users\\\\Ashok\\\\Downloads\\\\Requirements.docx\" -o /tmp/requirements.md)",
+      "Read(//tmp/**)",
+      "Bash(python3 -c \":*)",
+      "Bash(python \"C:\\\\Users\\\\Ashok\\\\AppData\\\\Roaming\\\\Claude\\\\local-agent-mode-sessions\\\\skills-plugin\\\\60d79cae-1e2e-4e20-89d1-873239aebccf\\\\85484ce0-0f72-4f08-bfac-16df515e8753\\\\skills\\\\docx\\\\scripts\\\\office\\\\unpack.py\" \"C:\\\\Users\\\\Ashok\\\\Downloads\\\\Requirements.docx\" \"C:\\\\Users\\\\Ashok\\\\Downloads\\\\req_unpacked\")"
     ]
   }
 }
