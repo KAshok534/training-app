@@ -23,7 +23,14 @@ export function useEnrollment(): Result {
   const [enrollment, setEnrollment] = useState<Enrollment | null>(null);
 
   useEffect(() => {
-    if (!user || user.role === 'admin') { setLoading(false); return; }
+    if (!user) { setLoading(false); return; }
+
+    // Admins bypass enrollment — treat as always enrolled
+    if (user.role === 'admin') {
+      setEnrollment({ registrationId: '', regCode: '', courseId: 0, courseTitle: 'Admin', courseIcon: '🔐', courseColor: 'var(--forest)', batchTime: '' });
+      setLoading(false);
+      return;
+    }
 
     supabase
       .from('registrations')
