@@ -140,8 +140,10 @@ const AdminHome: React.FC<{ onNavigate:(s:string)=>void; signOut:()=>void }> = (
               <div style={{ fontWeight:700, fontSize:15, marginBottom:14 }}>Quick Actions</div>
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
                 {[
-                  ['📋', 'All Courses',  'courses'],
-                  ['👥', 'Attendance',   'attendance'],
+                  ['📋', 'All Courses',    'courses'],
+                  ['🔐', 'Session QR',    'adminSession'],
+                  ['👥', 'Attendance',    'attendance'],
+                  ['🏆', 'Certificates',  'certificates'],
                 ].map(([ic, label, screen]) => (
                   <button key={label} onClick={() => onNavigate(screen)}
                     style={{ padding:'14px 10px', background:'var(--mist)', border:'1px solid var(--sand)', borderRadius:12, cursor:'pointer', fontSize:13, fontWeight:600, color:'var(--charcoal)', fontFamily:"'DM Sans', sans-serif", display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>

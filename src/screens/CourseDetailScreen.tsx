@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BATCHES, PAYMENT_METHODS } from '../data';
 import { Badge, Btn, Card, Spinner } from '../components/UI';
 import Icon from '../components/Icon';
+import { useEnrollment } from '../hooks/useEnrollment';
 import type { Course, RegistrationForm } from '../types';
 
 type Tab = 'overview'|'curriculum'|'trainer';
@@ -9,13 +10,21 @@ type Step = 1|2|3;
 
 interface Props { course: Course; onBack:()=>void; onNavigate:(s:string)=>void; }
 
+const PREVIEW_COUNT = 3; // how many topics to show without enrollment
+
 const CourseDetailScreen: React.FC<Props> = ({ course, onBack, onNavigate }) => {
+  const { enrollment } = useEnrollment();
+  // enrolled = just paid in this session (mock), OR already enrolled in this exact course
+  const alreadyEnrolled = enrollment?.courseId === course.id;
+
   const [tab, setTab]           = useState<Tab>('overview');
   const [showReg, setShowReg]   = useState(false);
-  const [enrolled, setEnrolled] = useState(false);
+  const [justEnrolled, setJustEnrolled] = useState(false);
   const [step, setStep]         = useState<Step>(1);
   const [paying, setPaying]     = useState(false);
   const [form, setForm]         = useState<RegistrationForm>({ name:'', email:'', phone:'', org:'', designation:'' });
+
+  const enrolled = alreadyEnrolled || justEnrolled;
 
   const upd = (k: keyof RegistrationForm, v: string) => setForm(p=>({...p,[k]:v}));
 
@@ -31,7 +40,7 @@ const CourseDetailScreen: React.FC<Props> = ({ course, onBack, onNavigate }) => 
     //     setEnrolled(true); setShowReg(false);
     //   }
     // });
-    setTimeout(()=>{ setPaying(false); setShowReg(false); setEnrolled(true); }, 1600);
+    setTimeout(()=>{ setPaying(false); setShowReg(false); setJustEnrolled(true); }, 1600);
   };
 
   const inp: React.CSSProperties = { width:'100%', padding:'13px 14px', borderRadius:12, border:'1.5px solid var(--sand)', background:'var(--white)', fontSize:14, fontFamily:"'DM Sans', sans-serif", outline:'none' };
@@ -109,13 +118,44 @@ const CourseDetailScreen: React.FC<Props> = ({ course, onBack, onNavigate }) => 
         {tab==='curriculum' && (
           <div style={{ animation:'fadeUp 0.3s ease' }}>
             <div style={{ fontSize:13, color:'#888', marginBottom:14 }}>{course.topics.length} topics</div>
-            {course.topics.map((t,i)=>(
+
+            {/* Always show first PREVIEW_COUNT topics */}
+            {course.topics.slice(0, enrolled ? course.topics.length : PREVIEW_COUNT).map((t, i) => (
               <div key={i} style={{ display:'flex', alignItems:'center', gap:14, padding:'13px 14px', background:'var(--white)', borderRadius:12, marginBottom:8, boxShadow:'0 1px 6px rgba(0,0,0,0.05)' }}>
                 <div style={{ width:28, height:28, borderRadius:8, background:`${course.color}18`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:12, fontWeight:700, color:course.color, flexShrink:0 }}>{i+1}</div>
                 <div style={{ fontSize:13, flex:1, lineHeight:1.4 }}>{t}</div>
                 <Icon name="file" size={14} color="#ddd"/>
               </div>
             ))}
+
+            {/* Lock banner for non-enrolled users */}
+            {!enrolled && course.topics.length > PREVIEW_COUNT && (
+              <div style={{ marginTop:8, borderRadius:16, overflow:'hidden', border:'1.5px dashed var(--sage)' }}>
+                {/* Blurred preview rows */}
+                {course.topics.slice(PREVIEW_COUNT, PREVIEW_COUNT + 3).map((t, i) => (
+                  <div key={i} style={{ display:'flex', alignItems:'center', gap:14, padding:'13px 14px', background:'var(--white)', filter:'blur(4px)', userSelect:'none', pointerEvents:'none', marginBottom:1 }}>
+                    <div style={{ width:28, height:28, borderRadius:8, background:`${course.color}18`, flexShrink:0 }}/>
+                    <div style={{ fontSize:13, flex:1, lineHeight:1.4 }}>{t}</div>
+                  </div>
+                ))}
+                {/* Overlay */}
+                <div style={{ background:'linear-gradient(to bottom, rgba(247,243,236,0.5), rgba(247,243,236,0.98))', padding:'24px 20px', textAlign:'center', marginTop:-40, position:'relative' }}>
+                  <div style={{ fontSize:32, marginBottom:8 }}>🔒</div>
+                  <div style={{ fontWeight:700, fontSize:15, color:'var(--forest)', marginBottom:6 }}>
+                    {course.topics.length - PREVIEW_COUNT} more topics
+                  </div>
+                  <div style={{ fontSize:13, color:'#888', marginBottom:16, lineHeight:1.5 }}>
+                    Enroll in this course to unlock the full curriculum
+                  </div>
+                  <button
+                    onClick={() => setShowReg(true)}
+                    style={{ padding:'11px 28px', background:course.color, color:'white', border:'none', borderRadius:12, fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:"'DM Sans', sans-serif" }}
+                  >
+                    Enroll Now · ₹{course.fee.toLocaleString()}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

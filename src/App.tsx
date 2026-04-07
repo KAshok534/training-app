@@ -8,13 +8,14 @@ import CoursesScreen      from './screens/CoursesScreen';
 import CourseDetailScreen from './screens/CourseDetailScreen';
 import LearningScreen     from './screens/LearningScreen';
 import AttendanceScreen   from './screens/AttendanceScreen';
-import CertificateScreen  from './screens/CertificateScreen';
-import BottomNav          from './components/BottomNav';
+import CertificateScreen    from './screens/CertificateScreen';
+import AdminSessionScreen   from './screens/AdminSessionScreen';
+import BottomNav            from './components/BottomNav';
 import InstallBanner      from './components/InstallBanner';
 import DemoBanner         from './components/DemoBanner';
 import type { Course }    from './types';
 
-type ScreenId = 'home'|'courses'|'courseDetail'|'learning'|'attendance'|'certificates';
+type ScreenId = 'home'|'courses'|'courseDetail'|'learning'|'attendance'|'certificates'|'adminSession';
 interface NavState { screen: ScreenId; data?: Course; }
 
 const InnerApp: React.FC = () => {
@@ -44,9 +45,10 @@ const InnerApp: React.FC = () => {
     switch (nav.screen) {
       case 'courseDetail':  return nav.data ? <CourseDetailScreen course={nav.data} onBack={()=>navigate('courses')} onNavigate={navigate}/> : null;
       case 'courses':       return <CoursesScreen onNavigate={navigate}/>;
-      case 'learning':      return <LearningScreen/>;
-      case 'attendance':    return <AttendanceScreen/>;
-      case 'certificates':  return <CertificateScreen/>;
+      case 'learning':      return <LearningScreen onNavigate={navigate}/>;
+      case 'attendance':    return <AttendanceScreen onNavigate={navigate}/>;
+      case 'certificates':  return <CertificateScreen onNavigate={navigate}/>;
+      case 'adminSession':  return <AdminSessionScreen onBack={() => navigate('home')}/>;
       default:              return <HomeScreen onNavigate={navigate}/>;
     }
   };
