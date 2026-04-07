@@ -17,7 +17,7 @@
 | **Primary Markets** | India (INR pricing) + Oman / International (USD pricing) |
 | **Live URL** | https://training-app-tawny.vercel.app |
 | **Repository** | C:\Users\Ashok\source\repos\aiwmr-app-pwa\aiwmr-app |
-| **Last Updated** | April 2026 |
+| **Last Updated** | April 2026 — Razorpay integrated |
 
 ---
 
@@ -30,7 +30,7 @@
 | Styling | Pure CSS-in-JS (inline styles) + CSS variables in `index.css` |
 | Database | Supabase (PostgreSQL) — Mumbai region (ap-south-1) |
 | Auth | Supabase Auth (email + password, email verification ON) |
-| Payments | Razorpay (not yet integrated — currently mock/demo) |
+| Payments | Razorpay ✅ integrated — test mode active (`rzp_test_*`) |
 | Hosting | Vercel (auto-deploy from git push) |
 | PWA | vite-plugin-pwa (generateSW mode, Workbox) |
 | QR Scanning | react-qr-reader (installed — wired to camera) |
@@ -46,7 +46,7 @@ src/
 ├── data/index.ts               — 15 real AIWMR courses (mock data, mirrors Supabase)
 ├── lib/
 │   ├── supabase.ts             — Supabase client (reads .env, graceful fallback to demo mode)
-│   └── razorpay.ts             — Razorpay helper (openRazorpay function — NOT YET WIRED)
+│   └── razorpay.ts             — Razorpay helper (openRazorpay, isRazorpayConfigured — WIRED)
 ├── context/
 │   └── AuthContext.tsx         — Global auth state (REAL auth active — NOT demo)
 ├── hooks/
@@ -65,7 +65,7 @@ src/
 │   ├── RegisterScreen.tsx      — Full sign-up with email verification
 │   ├── HomeScreen.tsx          — 3-state dashboard (Admin / Enrolled / Not-enrolled)
 │   ├── CoursesScreen.tsx       — 15 courses listing (fetches from Supabase)
-│   ├── CourseDetailScreen.tsx  — Course detail + 3-step registration flow (payment MOCK)
+│   ├── CourseDetailScreen.tsx  — Course detail + 3-step registration flow (real Razorpay payment)
 │   ├── AdminSessionScreen.tsx  — Admin: generate session QR codes, display & manage live sessions
 │   ├── LearningScreen.tsx      — Module list (gated — requires paid enrollment)
 │   ├── AttendanceScreen.tsx    — QR camera scan + manual code entry + monthly calendar (gated)
@@ -83,6 +83,11 @@ public/
 └── manifest.json               — PWA manifest (icons purpose: "any" — NOT maskable)
 
 vite.config.ts                  — Vite + PWA plugin config
+
+supabase/
+└── functions/
+    └── create-razorpay-order/
+        └── index.ts            — Edge Function: creates Razorpay orders server-side (Key Secret stays off browser)
 ```
 
 ---
@@ -94,7 +99,13 @@ Create `.env` in project root:
 ```bash
 VITE_SUPABASE_URL=https://agthvosbtsiyhmzyzzib.supabase.co
 VITE_SUPABASE_ANON_KEY=<anon key from Supabase dashboard>
-VITE_RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxxxx   # Not yet active
+VITE_RAZORPAY_KEY_ID=rzp_test_SamdPNMQxoIG5c   # Test key — swap for rzp_live_* when going live
+```
+
+**Razorpay Edge Function Secrets** (set via `supabase secrets set` — never in `.env`):
+```bash
+RAZORPAY_KEY_ID=rzp_test_SamdPNMQxoIG5c
+RAZORPAY_KEY_SECRET=<secret — stored in Supabase Edge Function secrets only>
 ```
 
 **Supabase Project Details:**
@@ -436,13 +447,18 @@ See Section 7.4 above.
   - First 3 topics shown to all logged-in users (preview)
   - Remaining topics hidden behind a blurred overlay with lock icon
   - Overlay shows "X more topics — Enroll in this course to unlock the full curriculum" + "Enroll Now · ₹XX,XXX" button (opens registration sheet directly)
-  - Enrolled students (paid, `access_granted = true` OR just completed mock payment in this session) see all topics
+  - Enrolled students (`access_granted = true` OR just paid in this session) see all topics
 - Registration modal: 3-step flow
-  1. Personal Details (name, email, phone, org, designation)
-  2. Batch Selection (fetched from `batches` table)
-  3. Payment (currently MOCK — simulates success after 1.5s)
-- ⚠️ **Does NOT write to `registrations` table** — Razorpay integration pending
-- On "payment success": sets `enrolled = true` locally, shows success banner with reg code
+  1. Personal Details — **pre-filled from logged-in user** (name/email/phone/org/designation)
+  2. Batch Selection — **fetched live from Supabase `batches` table** (falls back to local mock if empty); stores `selectedBatchId`
+  3. Payment — **real Razorpay integration** ✅
+- **Payment flow (Step 3):**
+  1. `handlePay()` calls Edge Function `create-razorpay-order` → gets real Razorpay `order_id`
+  2. Opens Razorpay checkout modal (`window.Razorpay`) — handles UPI/Card/Net Banking internally
+  3. On success: inserts into `registrations` with `access_granted: true` → unlocks Learning/Attendance/Certs immediately
+  4. Shows success banner with real `AIWMR-2026-XXXX` reg code from DB
+- **Fallback:** if `VITE_RAZORPAY_KEY_ID` not set → shows "Contact us" card with email/phone instead of pay button
+- **Error handling:** Edge Function failure, DB write failure (shows payment ID for manual recovery)
 
 ### LearningScreen
 - **GATED** — requires `access_granted = true` in registrations
@@ -555,7 +571,7 @@ These 15 courses exist in BOTH Supabase AND `src/data/index.ts` (as local fallba
 - Admin dashboard with real stats (student count, revenue, recent registrations)
 - Time-based greetings (Morning/Afternoon/Evening/Night + emoji)
 - CoursesScreen — real Supabase fetch + `mapCourse()` + local fallback
-- CourseDetailScreen — 3-tab layout + 3-step registration modal (payment MOCK)
+- CourseDetailScreen — 3-tab layout + 3-step registration modal + **real Razorpay payment** ✅
 - All 15 AIWMR courses — in Supabase AND `data/index.ts`
 - `useEnrollment` hook — checks `access_granted = true`
 - `EnrollmentGate` component — reusable gating pattern
@@ -570,12 +586,13 @@ These 15 courses exist in BOTH Supabase AND `src/data/index.ts` (as local fallba
 - Vercel deployment — auto-deploys on git push
 - `react-qr-reader` installed (camera scanning)
 - `qrcode.react` installed (QR code display for admin)
+- **Razorpay payment integration** — Edge Function deployed, test keys active, real `registrations` insert on payment success
 
 ### 🔧 PENDING (in priority order)
 
 #### P1 — Critical for Real Usage
 
-1. **Add Vercel env vars** — `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` in Vercel dashboard → Settings → Environment Variables → Production → Redeploy
+1. **Add Vercel env vars** — `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` + `VITE_RAZORPAY_KEY_ID` in Vercel dashboard → Settings → Environment Variables → Production → Redeploy
 
 2. **Set admin name in DB:**
    ```sql
@@ -583,11 +600,12 @@ These 15 courses exist in BOTH Supabase AND `src/data/index.ts` (as local fallba
    WHERE id = 'e9da4f7e-ae28-44c6-b703-9c0d403eda22';
    ```
 
-3. **Razorpay payment integration** — See Section 13
-   - Create Supabase Edge Function `create-razorpay-order`
-   - Wire `CourseDetailScreen.handlePay()` to real Razorpay modal
-   - After payment success: insert `registrations` row with `access_granted: true`
-   - Server-side signature verification
+3. **Swap Razorpay test keys → live keys** when client's Razorpay account is KYC verified:
+   - Replace `VITE_RAZORPAY_KEY_ID` in `.env` and Vercel with `rzp_live_*`
+   - Run `supabase secrets set RAZORPAY_KEY_ID=rzp_live_*` + `supabase secrets set RAZORPAY_KEY_SECRET=<live_secret>`
+   - Redeploy Edge Function: `npx supabase functions deploy create-razorpay-order --no-verify-jwt`
+
+4. **Server-side Razorpay signature verification** — currently skipped; should verify `razorpay_signature` in the Edge Function before trusting payment success
 
 #### P2 — Core Feature Completion
 
@@ -705,7 +723,7 @@ case 'adminSession':  return <AdminSessionScreen onBack={() => navigate('home')}
 
 ---
 
-## 13. Razorpay Integration (PENDING — Implementation Guide)
+## 13. Razorpay Integration — ✅ IMPLEMENTED
 
 ### Step 1: Supabase Edge Function
 
