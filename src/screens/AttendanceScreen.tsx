@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { QrReader } from 'react-qr-reader';
+import { Scanner } from '@yudiel/react-qr-scanner';
 import { supabase } from '../lib/supabase';
 import { Card, Spinner } from '../components/UI';
 import EnrollmentGate from '../components/EnrollmentGate';
@@ -89,9 +89,10 @@ const AttendanceScreen: React.FC<Props> = ({ onNavigate }) => {
 
   // ── Camera QR handler ─────────────────────────────────────────────────────
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleQrResult = useCallback((result: any) => {
+  const handleQrResult = useCallback((detectedCodes: { rawValue: string }[]) => {
+    const result = detectedCodes?.[0];
     if (!result || alreadyScanned.current) return;
-    const text = result?.text ?? result?.getText?.();
+    const text = result.rawValue;
     if (!text) return;
     alreadyScanned.current = true;
     markAttendance(text);
@@ -259,11 +260,11 @@ const AttendanceScreen: React.FC<Props> = ({ onNavigate }) => {
                   <div style={{ position:'relative' }}>
                     {/* Camera viewfinder */}
                     <div style={{ position:'relative', background:'#111', minHeight:260 }}>
-                      <QrReader
-                        onResult={handleQrResult}
+                      <Scanner
+                        onScan={handleQrResult}
                         constraints={{ facingMode: 'environment' }}
-                        containerStyle={{ width:'100%' }}
-                        videoStyle={{ width:'100%', borderRadius:0 }}
+                        styles={{ container: { width:'100%' }, video: { width:'100%', borderRadius:0 } }}
+                        sound={false}
                       />
                       {/* Corner overlay */}
                       <div style={{ position:'absolute', inset:0, pointerEvents:'none' }}>
