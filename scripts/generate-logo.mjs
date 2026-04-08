@@ -10,9 +10,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const SRC = resolve(__dirname, '..', '..', 'Client images', 'aiwmr logo.jpeg');
 const OUT = resolve(__dirname, '..', 'public', 'logo.png');
 
-// Use the app's cream background colour so the logo blends seamlessly
-// into the login card — no visible white box
-const CREAM = { r: 247, g: 243, b: 236, alpha: 1 }; // --cream: #f7f3ec
+// White background — CSS mix-blend-mode:multiply on the <img> makes white
+// pixels invisible against any background colour. Do NOT use cream here
+// or the padding area will darken (cream × cream = darker cream).
+const WHITE = { r: 255, g: 255, b: 255, alpha: 1 };
 
 // 600 px wide — clean rectangular version with 6% padding on all sides
 const TARGET_W = 600;
@@ -20,9 +21,9 @@ const PAD      = Math.round(TARGET_W * 0.06);
 const INNER_W  = TARGET_W - PAD * 2;
 
 await sharp(SRC)
-  .resize({ width: INNER_W, fit: 'inside', background: CREAM })
-  .flatten({ background: CREAM })
-  .extend({ top: PAD, bottom: PAD, left: PAD, right: PAD, background: CREAM })
+  .resize({ width: INNER_W, fit: 'inside', background: WHITE })
+  .flatten({ background: WHITE })
+  .extend({ top: PAD, bottom: PAD, left: PAD, right: PAD, background: WHITE })
   .resize(TARGET_W)
   .png()
   .toFile(OUT);
