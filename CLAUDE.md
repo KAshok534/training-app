@@ -1288,7 +1288,18 @@ git push                  # auto-deploys to Vercel
 
 ---
 
-## 19. Known Issues & Gotchas
+## 19. Git Commit Rules
+
+> **IMPORTANT — applies to all AI assistants and developers working on this project.**
+
+- **Do NOT add `Co-Authored-By` lines** to any commit message. Keep commit messages clean.
+- Always run `npm run typecheck` before committing — zero TypeScript errors required.
+- Commit messages should follow: `type: short description` (e.g. `feat:`, `fix:`, `docs:`, `refactor:`)
+- Never commit `.env` or any file containing secrets.
+
+---
+
+## 20. Known Issues & Gotchas
 
 | Issue | Cause | Fix Applied |
 |---|---|---|
@@ -1316,7 +1327,7 @@ git push                  # auto-deploys to Vercel
 
 ---
 
-## 20. Security Checklist
+## 21. Security Checklist
 
 - ✅ `.env` in `.gitignore` — never committed to git
 - ✅ Only Supabase **anon key** in frontend (not service role key — that has admin access)
@@ -1328,7 +1339,7 @@ git push                  # auto-deploys to Vercel
 
 ---
 
-## 21. DRM / Video Content Protection
+## 22. DRM / Video Content Protection
 
 **Client's concern:** Prevent students from downloading/copying video content.
 
@@ -1348,7 +1359,7 @@ git push                  # auto-deploys to Vercel
 
 ---
 
-## 22. Customer Requirements Summary
+## 23. Customer Requirements Summary
 
 ### Source
 Requirements gathered from: Requirements.docx + WhatsApp conversations with Dr. Sushanth Gade
@@ -1373,7 +1384,7 @@ Requirements gathered from: Requirements.docx + WhatsApp conversations with Dr. 
 - QR scanner ✅ implemented — `react-qr-reader` installed, camera scan + manual code entry both working
 - Module video/PDF content viewer
 - Admin panel (student management, QR generation, certificate issuance, course CRUD)
-- Assessment/quiz system per module (grading rules confirmed — see Section 23)
+- Assessment/quiz system per module (grading rules confirmed — see Section 24)
 - Student individual performance dashboard per participant (confirmed requirement)
 - Notifications for upcoming live sessions
 - Proper PDF certificate generation (`@react-pdf/renderer`)
@@ -1385,7 +1396,7 @@ Requirements gathered from: Requirements.docx + WhatsApp conversations with Dr. 
 
 ---
 
-## 23. Assessment & Grading Rules (Confirmed by Dr. Sushanth Gade)
+## 24. Assessment & Grading Rules (Confirmed by Dr. Sushanth Gade)
 
 > Source: WhatsApp reply from Dr. Sushanth Gade, April 2026
 > Status: **Documented — NOT yet implemented**
@@ -1430,7 +1441,7 @@ Admin should also be able to view this dashboard for any student.
 
 ---
 
-## 24. Phase 2 Roadmap (Confirmed by Dr. Sushanth Gade)
+## 25. Phase 2 Roadmap (Confirmed by Dr. Sushanth Gade)
 
 > Source: WhatsApp reply from Dr. Sushanth Gade, April 2026
 > Status: **Documented — Phase 2, not in current scope**
