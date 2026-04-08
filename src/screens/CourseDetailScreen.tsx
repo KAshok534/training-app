@@ -201,6 +201,18 @@ const CourseDetailScreen: React.FC<Props> = ({ course, onBack, onNavigate }) => 
         {/* Overview */}
         {tab === 'overview' && (
           <div style={{ animation: 'fadeUp 0.3s ease' }}>
+
+            {/* Official course logo — shown when client has provided one */}
+            {course.logoUrl && (
+              <div style={{ textAlign: 'center', marginBottom: 18, padding: '16px 12px', background: 'var(--white)', borderRadius: 16, boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}>
+                <img
+                  src={course.logoUrl}
+                  alt={course.title}
+                  style={{ width: '82%', maxWidth: 340, height: 'auto' }}
+                />
+              </div>
+            )}
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
               {([
                 ['💰', 'Fee (INR)', `₹${course.fee.toLocaleString()}`],

@@ -37,6 +37,7 @@ export interface Course {
   color: string;
   icon: string;
   topics: string[];
+  logoUrl?: string;  // optional — only set for courses with an official logo image
 }
 
 export type ModuleType = 'video' | 'pdf' | 'quiz' | 'assignment';

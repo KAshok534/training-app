@@ -27,6 +27,7 @@ function mapCourse(row: any): Course {
     color:     row.color,
     icon:      row.icon,
     topics:    row.topics ?? [],
+    logoUrl:   row.logo_url ?? undefined,
   };
 }
 
@@ -124,7 +125,7 @@ const CoursesScreen: React.FC<Props> = ({ onNavigate }) => {
                   >
                     {/* Thumbnail */}
                     <div style={{
-                      background: c.color,
+                      background: c.logoUrl ? 'white' : c.color,
                       height:110,
                       position:'relative',
                       display:'flex',
@@ -132,11 +133,16 @@ const CoursesScreen: React.FC<Props> = ({ onNavigate }) => {
                       justifyContent:'center',
                       overflow:'hidden',
                     }}>
-                      {/* Decorative circles */}
-                      <div style={{ position:'absolute', top:-18, right:-18, width:70, height:70, borderRadius:'50%', background:'rgba(255,255,255,0.08)' }}/>
-                      <div style={{ position:'absolute', bottom:-12, left:-12, width:50, height:50, borderRadius:'50%', background:'rgba(255,255,255,0.06)' }}/>
-                      {/* Emoji icon */}
-                      <div style={{ fontSize:44, position:'relative', zIndex:1 }}>{c.icon}</div>
+                      {/* Decorative circles — only for emoji variant */}
+                      {!c.logoUrl && <>
+                        <div style={{ position:'absolute', top:-18, right:-18, width:70, height:70, borderRadius:'50%', background:'rgba(255,255,255,0.08)' }}/>
+                        <div style={{ position:'absolute', bottom:-12, left:-12, width:50, height:50, borderRadius:'50%', background:'rgba(255,255,255,0.06)' }}/>
+                      </>}
+                      {/* Logo image OR emoji */}
+                      {c.logoUrl
+                        ? <img src={c.logoUrl} alt={c.title} style={{ width:'88%', height:'88%', objectFit:'contain', position:'relative', zIndex:1 }}/>
+                        : <div style={{ fontSize:44, position:'relative', zIndex:1 }}>{c.icon}</div>
+                      }
                       {/* Certificate badge — top right */}
                       <div style={{
                         position:'absolute', top:8, right:8,

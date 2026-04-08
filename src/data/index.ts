@@ -9,6 +9,7 @@ export const COURSES: Course[] = [
     duration: '5 Months', fee: 16000, feeUsd: 175, hours: '150 Hrs', seats: 20, filled: 0, mode: 'Online',
     startDate: 'Jul 15, 2026', badge: 'Flagship', modules: 5,
     trainer: 'Dr. Sushanth Gade', category: 'Environment', color: '#2d5a3d', icon: '🌿',
+    logoUrl: '/course-logos/cewm.png',
     topics: [
       'Environment Management', 'Introduction to Waste Management',
       'Solid Waste Streams & Management Hierarchy', 'Source Segregation & MRF',
