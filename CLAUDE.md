@@ -58,7 +58,8 @@ src/
 │   ├── BottomNav.tsx           — 5-tab bottom navigation
 │   ├── InstallBanner.tsx       — PWA install prompt (Android native + Android manual + iOS instructions)
 │   ├── DemoBanner.tsx          — "Demo mode" notice (hides when .env is set)
-│   └── EnrollmentGate.tsx      — KEY COMPONENT: gates screens behind paid enrollment
+│   ├── EnrollmentGate.tsx      — KEY COMPONENT: gates screens behind paid enrollment
+│   └── PreCourseInstructionsModal.tsx — One-time "Before You Begin" instructions sheet (12 rules)
 ├── screens/
 │   ├── SplashScreen.tsx        — 2-second animated splash with AIWMR branding
 │   ├── LoginScreen.tsx         — Email/password login + AIWMR logo in form card
@@ -491,6 +492,7 @@ See Section 7.4 above.
 - **Fallback:** if `VITE_RAZORPAY_KEY_ID` not set → shows "Contact us" card with email/phone instead of pay button
 - **Error handling:** Edge Function failure, DB write failure (shows payment ID for manual recovery)
 - **Course logo in Overview tab:** if `course.logoUrl` set, renders `<img src={course.logoUrl}/>` with transparent PNG — no `mix-blend-mode` needed
+- **Pre-course instructions:** `<PreCourseInstructionsModal userId={user?.id ?? 'guest'}/>` rendered at bottom of screen — appears 600ms after first visit, dismissed permanently via `localStorage` key `aiwmr_instructions_seen_<userId>` (once per user across all courses, not once per course)
 
 ### LearningScreen
 - **GATED** — requires `access_granted = true` in registrations
@@ -623,6 +625,7 @@ These 15 courses exist in BOTH Supabase AND `src/data/index.ts` (as local fallba
 - **PWA app icons** — all generated from AIWMR logo.jpeg via `scripts/generate-icons.mjs` using `sharp`
 - **CEWM course logo** in CoursesScreen thumbnail + CourseDetailScreen Overview tab (`public/course-logos/cewm.png` — transparent PNG, 600×400)
 - **PWA install banner** (`InstallBanner.tsx`) — bottom sheet for Android (native prompt OR manual 3-dot instructions) + iOS (Share → Add to Home Screen), shown after 1.5s on mobile, dismissed per session via `sessionStorage`
+- **Pre-course instructions modal** (`PreCourseInstructionsModal.tsx`) — 12-item "Before You Begin" bottom sheet on CourseDetailScreen, shown once per user permanently via `localStorage`
 
 ### 🔧 PENDING (in priority order)
 
