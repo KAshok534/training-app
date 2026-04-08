@@ -1,6 +1,9 @@
 // Generates public/logo.png — full rectangular AIWMR logo for use inside the app
 // (login screen, about page, etc.)
 // Run: node scripts/generate-logo.mjs
+//
+// Strategy: remove the white background by converting white pixels to transparent.
+// This avoids needing mix-blend-mode in CSS and works in ALL browsers.
 
 import sharp from 'sharp';
 import { resolve, dirname } from 'path';
@@ -10,21 +13,35 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const SRC = resolve(__dirname, '..', '..', 'Client images', 'aiwmr logo.jpeg');
 const OUT = resolve(__dirname, '..', 'public', 'logo.png');
 
-// White background — CSS mix-blend-mode:multiply on the <img> makes white
-// pixels invisible against any background colour. Do NOT use cream here
-// or the padding area will darken (cream × cream = darker cream).
-const WHITE = { r: 255, g: 255, b: 255, alpha: 1 };
-
-// 600 px wide — clean rectangular version with 6% padding on all sides
+// 1. Resize to 600px wide (keeping proportions)
+// 2. Ensure alpha channel exists
+// 3. Use raw pixel manipulation to turn near-white pixels transparent
 const TARGET_W = 600;
-const PAD      = Math.round(TARGET_W * 0.06);
-const INNER_W  = TARGET_W - PAD * 2;
 
-await sharp(SRC)
-  .resize({ width: INNER_W, fit: 'inside', background: WHITE })
-  .flatten({ background: WHITE })
-  .extend({ top: PAD, bottom: PAD, left: PAD, right: PAD, background: WHITE })
-  .resize(TARGET_W)
+const { data, info } = await sharp(SRC)
+  .resize({ width: TARGET_W, fit: 'inside' })
+  .ensureAlpha()
+  .raw()
+  .toBuffer({ resolveWithObject: true });
+
+const { width, height, channels } = info; // channels = 4 (RGBA)
+const pixels = new Uint8ClampedArray(data.buffer);
+
+// White-removal threshold: pixels where R,G,B are all >= 240 become transparent
+const THRESHOLD = 240;
+
+for (let i = 0; i < pixels.length; i += 4) {
+  const r = pixels[i];
+  const g = pixels[i + 1];
+  const b = pixels[i + 2];
+  if (r >= THRESHOLD && g >= THRESHOLD && b >= THRESHOLD) {
+    pixels[i + 3] = 0; // fully transparent
+  }
+}
+
+await sharp(Buffer.from(pixels.buffer), {
+  raw: { width, height, channels },
+})
   .png()
   .toFile(OUT);
 

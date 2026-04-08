@@ -1,5 +1,9 @@
 // Generates course logo PNGs for use inside the app (course cards + detail pages).
 // Run: node scripts/generate-course-logos.mjs
+//
+// Strategy: remove the white background by converting white pixels to transparent.
+// This avoids needing mix-blend-mode in CSS and works in ALL browsers.
+//
 // Add new courses here as the client provides more logos.
 
 import sharp from 'sharp';
@@ -13,18 +17,34 @@ const OUT_DIR   = resolve(__dirname, '..', 'public', 'course-logos');
 
 mkdirSync(OUT_DIR, { recursive: true });
 
-const WHITE = { r: 255, g: 255, b: 255, alpha: 1 };
+// White-removal threshold: pixels where R,G,B are all >= this value become transparent
+const THRESHOLD = 240;
 
 async function generateCourseLogo(srcFile, outFile, targetWidth = 600) {
-  const pad = Math.round(targetWidth * 0.06);
-  const innerW = targetWidth - pad * 2;
-  await sharp(srcFile)
-    .resize({ width: innerW, fit: 'inside', background: WHITE })
-    .flatten({ background: WHITE })
-    .extend({ top: pad, bottom: pad, left: pad, right: pad, background: WHITE })
-    .resize(targetWidth)
+  const { data, info } = await sharp(srcFile)
+    .resize({ width: targetWidth, fit: 'inside' })
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const { width, height, channels } = info; // channels = 4 (RGBA)
+  const pixels = new Uint8ClampedArray(data.buffer);
+
+  for (let i = 0; i < pixels.length; i += 4) {
+    const r = pixels[i];
+    const g = pixels[i + 1];
+    const b = pixels[i + 2];
+    if (r >= THRESHOLD && g >= THRESHOLD && b >= THRESHOLD) {
+      pixels[i + 3] = 0; // fully transparent
+    }
+  }
+
+  await sharp(Buffer.from(pixels.buffer), {
+    raw: { width, height, channels },
+  })
     .png()
     .toFile(outFile);
+
   const meta = await sharp(outFile).metadata();
   console.log(`✅  ${outFile}  (${meta.width} × ${meta.height})`);
 }

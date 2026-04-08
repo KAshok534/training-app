@@ -57,7 +57,7 @@ const LoginScreen: React.FC<Props> = ({ onShowRegister }) => {
           <img
             src="/logo.png"
             alt="AIWMR Training Academy"
-            style={{ width:'78%', maxWidth:320, height:'auto', mixBlendMode:'multiply' }}
+            style={{ width:'78%', maxWidth:320, height:'auto' }}
           />
         </div>
 

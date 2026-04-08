@@ -208,7 +208,7 @@ const CourseDetailScreen: React.FC<Props> = ({ course, onBack, onNavigate }) => 
                 <img
                   src={course.logoUrl}
                   alt={course.title}
-                  style={{ width: '82%', maxWidth: 340, height: 'auto', mixBlendMode: 'multiply' }}
+                  style={{ width: '82%', maxWidth: 340, height: 'auto' }}
                 />
               </div>
             )}
