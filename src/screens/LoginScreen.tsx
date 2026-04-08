@@ -51,6 +51,16 @@ const LoginScreen: React.FC<Props> = ({ onShowRegister }) => {
 
       {/* Form card */}
       <div style={{ flex:1, background:'var(--cream)', borderRadius:'28px 28px 0 0', padding:'36px 28px 40px', overflowY:'auto', animation:'slideUp 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
+
+        {/* Official AIWMR logo */}
+        <div style={{ textAlign:'center', marginBottom:28 }}>
+          <img
+            src="/logo.png"
+            alt="AIWMR Training Academy"
+            style={{ width:'78%', maxWidth:320, height:'auto', borderRadius:12, boxShadow:'0 2px 12px rgba(0,0,0,0.08)' }}
+          />
+        </div>
+
         {error && (
           <div style={{ background:'rgba(192,57,43,0.1)', border:'1px solid rgba(192,57,43,0.3)', borderRadius:12, padding:'12px 16px', marginBottom:20, fontSize:14, color:'var(--red)' }}>
             {error}
