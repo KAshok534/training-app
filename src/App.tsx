@@ -35,9 +35,14 @@ const InnerApp: React.FC = () => {
     </div>
   );
 
-  if (!user) return authScreen === 'register'
-    ? <RegisterScreen onShowLogin={() => setAuthScreen('login')} />
-    : <LoginScreen    onShowRegister={() => setAuthScreen('register')} />;
+  if (!user) return (
+    <>
+      <InstallBanner/>
+      {authScreen === 'register'
+        ? <RegisterScreen onShowLogin={() => setAuthScreen('login')} />
+        : <LoginScreen    onShowRegister={() => setAuthScreen('register')} />}
+    </>
+  );
 
   const activeTab = nav.screen==='courseDetail'?'courses':nav.screen;
 
