@@ -6,6 +6,7 @@ import { useEnrollment } from '../hooks/useEnrollment';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 import { openRazorpay, isRazorpayConfigured } from '../lib/razorpay';
+import PreCourseInstructionsModal from '../components/PreCourseInstructionsModal';
 import type { Course, Batch, RegistrationForm } from '../types';
 
 type Tab  = 'overview' | 'curriculum' | 'trainer';
@@ -467,6 +468,10 @@ const CourseDetailScreen: React.FC<Props> = ({ course, onBack, onNavigate }) => 
           </div>
         </div>
       )}
+
+      {/* ── Pre-course instructions — one-time modal per user ── */}
+      <PreCourseInstructionsModal userId={user?.id ?? 'guest'} />
+
     </div>
   );
 };
