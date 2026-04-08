@@ -17,7 +17,7 @@
 | **Primary Markets** | India (INR pricing) + Oman / International (USD pricing) |
 | **Live URL** | https://training-app-tawny.vercel.app |
 | **Repository** | C:\Users\Ashok\source\repos\aiwmr-app-pwa\aiwmr-app |
-| **Last Updated** | April 2026 — Razorpay integrated |
+| **Last Updated** | April 2026 — Razorpay + Brand logos + PWA install banner |
 
 ---
 
@@ -42,45 +42,53 @@
 
 ```
 src/
-├── types/index.ts              — All TypeScript interfaces
-├── data/index.ts               — 15 real AIWMR courses (mock data, mirrors Supabase)
+├── types/index.ts              — All TypeScript interfaces (includes logoUrl?: string on Course)
+├── data/index.ts               — 15 real AIWMR courses (mock data, mirrors Supabase; CEWM has logoUrl)
 ├── lib/
 │   ├── supabase.ts             — Supabase client (reads .env, graceful fallback to demo mode)
 │   └── razorpay.ts             — Razorpay helper (openRazorpay, isRazorpayConfigured — WIRED)
 ├── context/
 │   └── AuthContext.tsx         — Global auth state (REAL auth active — NOT demo)
 ├── hooks/
-│   ├── usePWAInstall.ts        — PWA install prompt logic
+│   ├── usePWAInstall.ts        — PWA install prompt logic (captures beforeinstallprompt event)
 │   └── useEnrollment.ts        — KEY HOOK: checks if student has paid enrollment
 ├── components/
 │   ├── Icon.tsx                — Typed SVG icon system (20+ icons)
 │   ├── UI.tsx                  — Badge, ProgressBar, Btn, Card, Spinner, Divider
 │   ├── BottomNav.tsx           — 5-tab bottom navigation
-│   ├── InstallBanner.tsx       — PWA install prompt banner
+│   ├── InstallBanner.tsx       — PWA install prompt (Android native + Android manual + iOS instructions)
 │   ├── DemoBanner.tsx          — "Demo mode" notice (hides when .env is set)
 │   └── EnrollmentGate.tsx      — KEY COMPONENT: gates screens behind paid enrollment
 ├── screens/
-│   ├── SplashScreen.tsx        — 2-second animated splash
-│   ├── LoginScreen.tsx         — Email/password login
+│   ├── SplashScreen.tsx        — 2-second animated splash with AIWMR branding
+│   ├── LoginScreen.tsx         — Email/password login + AIWMR logo in form card
 │   ├── RegisterScreen.tsx      — Full sign-up with email verification
 │   ├── HomeScreen.tsx          — 3-state dashboard (Admin / Enrolled / Not-enrolled)
-│   ├── CoursesScreen.tsx       — 15 courses listing (fetches from Supabase)
+│   ├── CoursesScreen.tsx       — 15 courses listing; COURSE_LOGO_MAP for per-course logos
 │   ├── CourseDetailScreen.tsx  — Course detail + 3-step registration flow (real Razorpay payment)
 │   ├── AdminSessionScreen.tsx  — Admin: generate session QR codes, display & manage live sessions
 │   ├── LearningScreen.tsx      — Module list (gated — requires paid enrollment)
 │   ├── AttendanceScreen.tsx    — QR camera scan + manual code entry + monthly calendar (gated)
 │   └── CertificateScreen.tsx   — Certificate viewer + download (gated)
-├── App.tsx                     — Root routing logic
+├── App.tsx                     — Root routing logic (InstallBanner renders on login screen too)
 ├── main.tsx                    — Entry point
 └── styles/index.css            — Global CSS variables, animations, PWA layout
 
 public/
-├── icons/                      — PWA icons (android-chrome-*.png, apple-touch-icon.png)
+├── logo.png                    — AIWMR brand logo (600×245, transparent background PNG)
+├── course-logos/
+│   └── cewm.png                — CEWM flagship course logo (600×400, transparent background PNG)
+├── icons/                      — PWA icons (all generated from AIWMR logo.jpeg via sharp)
 │   ├── android-chrome-192x192.png
 │   ├── android-chrome-512x512.png
 │   ├── apple-touch-icon.png
 │   └── favicon.ico
 └── manifest.json               — PWA manifest (icons purpose: "any" — NOT maskable)
+
+scripts/                        — Image generation utilities (run with: node scripts/<file>.mjs)
+├── generate-logo.mjs           — Generates public/logo.png (transparent bg, white pixel removal)
+├── generate-course-logos.mjs   — Generates public/course-logos/*.png (transparent bg)
+└── generate-icons.mjs          — Generates public/icons/* (square format, white bg, for PWA icons)
 
 vite.config.ts                  — Vite + PWA plugin config
 
@@ -173,7 +181,16 @@ category     text
 color        text
 icon         text
 topics       text[]
+logo_url     text       -- optional: path to course logo PNG (e.g. '/course-logos/cewm.png')
+                        -- PENDING: column not yet added to Supabase; frontend uses COURSE_LOGO_MAP fallback
 ```
+
+> ⚠️ **`logo_url` column is NOT yet in Supabase.** Run this SQL to add it:
+> ```sql
+> ALTER TABLE courses ADD COLUMN IF NOT EXISTS logo_url text;
+> UPDATE courses SET logo_url = '/course-logos/cewm.png' WHERE id = 1;
+> ```
+> Until then, `CoursesScreen.tsx` uses `COURSE_LOGO_MAP` as a frontend fallback (keyed by course `id`).
 
 **`registrations`**
 ```sql
@@ -365,7 +382,13 @@ Supabase returns snake_case column names. The frontend TypeScript interface uses
 Every screen fetching courses must use this mapper:
 
 ```typescript
-// In HomeScreen.tsx — copy this pattern wherever courses are fetched
+// In CoursesScreen.tsx — copy this pattern wherever courses are fetched
+// COURSE_LOGO_MAP is a frontend fallback until logo_url column exists in Supabase
+const COURSE_LOGO_MAP: Record<number, string> = {
+  1: '/course-logos/cewm.png',
+  // add more here when client provides logos for other courses
+};
+
 function mapCourse(row: any): Course {
   return {
     id: row.id, title: row.title, subtitle: row.subtitle,
@@ -374,11 +397,14 @@ function mapCourse(row: any): Course {
     mode: row.mode, startDate: row.start_date, badge: row.badge,
     modules: row.module_count, trainer: row.trainer, category: row.category,
     color: row.color, icon: row.icon, topics: row.topics ?? [],
+    // Prefer DB value; fall back to local map until logo_url column exists in Supabase
+    logoUrl: row.logo_url ?? COURSE_LOGO_MAP[row.id as number] ?? undefined,
   };
 }
 ```
 
 > ⚠️ If you add a new column to `courses` table: update the `Course` interface in `types/index.ts` AND `mapCourse()` in every screen that uses it.
+> When `logo_url` column is added to Supabase, `row.logo_url` takes precedence automatically — `COURSE_LOGO_MAP` is the fallback only.
 
 ### 7.4 HomeScreen — 3 States
 
@@ -420,6 +446,8 @@ else (student):
 - Demo mode: pre-fills credentials, accepts anything, auto-logs in
 - Real mode: `supabase.auth.signInWithPassword`
 - "Create Account" link calls `onShowRegister()` prop
+- **AIWMR logo** shown at top of the cream form card: `<img src="/logo.png" style={{ width:'78%', maxWidth:320 }}/>`
+- Logo PNG has a transparent background — no `mix-blend-mode` needed, works in all browsers
 
 ### RegisterScreen
 - Fields: Name*, Email*, Phone*, Organization (optional), Designation (optional), Password*, Confirm Password*
@@ -439,6 +467,9 @@ See Section 7.4 above.
 - Shows Spinner while loading
 - **Fallback:** if Supabase returns 0 rows, falls back to `COURSES` from `data/index.ts`
 - Tapping course → `onNavigate('courseDetail', courseObject)`
+- **Course logos:** if `course.logoUrl` is set, thumbnail shows logo on white background; otherwise shows emoji on `course.color`
+- `COURSE_LOGO_MAP` in the file provides the fallback until `logo_url` column exists in Supabase (see Section 7.3)
+- Badges (`CERT`, level) have `zIndex:3` and `whiteSpace:'nowrap'` to stay visible over logo images
 
 ### CourseDetailScreen
 - Props: `{ course: Course, onBack: () => void, onNavigate: (screen: string) => void }`
@@ -459,6 +490,7 @@ See Section 7.4 above.
   4. Shows success banner with real `AIWMR-2026-XXXX` reg code from DB
 - **Fallback:** if `VITE_RAZORPAY_KEY_ID` not set → shows "Contact us" card with email/phone instead of pay button
 - **Error handling:** Edge Function failure, DB write failure (shows payment ID for manual recovery)
+- **Course logo in Overview tab:** if `course.logoUrl` set, renders `<img src={course.logoUrl}/>` with transparent PNG — no `mix-blend-mode` needed
 
 ### LearningScreen
 - **GATED** — requires `access_granted = true` in registrations
@@ -587,6 +619,10 @@ These 15 courses exist in BOTH Supabase AND `src/data/index.ts` (as local fallba
 - `react-qr-reader` installed (camera scanning)
 - `qrcode.react` installed (QR code display for admin)
 - **Razorpay payment integration** — Edge Function deployed, test keys active, real `registrations` insert on payment success
+- **AIWMR brand logo** on LoginScreen (`public/logo.png` — transparent PNG, 600×245)
+- **PWA app icons** — all generated from AIWMR logo.jpeg via `scripts/generate-icons.mjs` using `sharp`
+- **CEWM course logo** in CoursesScreen thumbnail + CourseDetailScreen Overview tab (`public/course-logos/cewm.png` — transparent PNG, 600×400)
+- **PWA install banner** (`InstallBanner.tsx`) — bottom sheet for Android (native prompt OR manual 3-dot instructions) + iOS (Share → Add to Home Screen), shown after 1.5s on mobile, dismissed per session via `sessionStorage`
 
 ### 🔧 PENDING (in priority order)
 
@@ -686,7 +722,80 @@ html, body, #root { height: 100%; overflow: hidden; }
 
 ---
 
-## 12. Navigation Architecture
+## 12. Brand Assets & Image Generation
+
+### Source Images
+
+All source images live in `C:\Users\Ashok\source\repos\aiwmr-app-pwa\Client images\` (outside the repo — not committed to git):
+- `aiwmr logo.jpeg` — main AIWMR brand logo (used for app icons + login screen logo)
+- `CEWM flagship course logo.jpeg` — CEWM course logo (used in course thumbnail + detail)
+
+### Generated Output Files
+
+All PNGs are committed to `public/` and deployed to Vercel:
+
+| Script | Output | Size | Purpose |
+|---|---|---|---|
+| `scripts/generate-logo.mjs` | `public/logo.png` | 600×245, transparent bg | Login screen logo |
+| `scripts/generate-course-logos.mjs` | `public/course-logos/cewm.png` | 600×400, transparent bg | CEWM course thumbnail + detail |
+| `scripts/generate-icons.mjs` | `public/icons/*` | 192×192, 512×512, 180×180 | PWA app icons (white bg — opaque, intentional) |
+
+### White Background Removal — CRITICAL PATTERN
+
+Course logos and the brand logo on the login screen must have **transparent backgrounds** so they look clean on any background colour (cream, white, coloured cards). The source JPEGs have white backgrounds baked in.
+
+**Do NOT use `mix-blend-mode: multiply` in CSS.** It is inconsistent across mobile browsers (fails on Comet, older Chrome WebViews).
+
+**The correct approach** (used in both `generate-logo.mjs` and `generate-course-logos.mjs`):
+
+```javascript
+// Pixel-level white removal using sharp
+const { data, info } = await sharp(srcFile)
+  .resize({ width: targetWidth, fit: 'inside' })
+  .ensureAlpha()       // adds alpha channel to JPEG
+  .raw()               // get raw RGBA pixel buffer
+  .toBuffer({ resolveWithObject: true });
+
+const THRESHOLD = 240; // pixels with R,G,B all >= 240 → transparent
+const pixels = new Uint8ClampedArray(data.buffer);
+for (let i = 0; i < pixels.length; i += 4) {
+  if (pixels[i] >= THRESHOLD && pixels[i+1] >= THRESHOLD && pixels[i+2] >= THRESHOLD) {
+    pixels[i + 3] = 0; // set alpha to 0 (fully transparent)
+  }
+}
+
+await sharp(Buffer.from(pixels.buffer), { raw: { width, height, channels } })
+  .png()
+  .toFile(outFile);
+```
+
+**PWA icons** (`generate-icons.mjs`) intentionally keep the white background — they need an opaque background for the home screen icon.
+
+### Adding a New Course Logo
+
+When client provides a new course logo:
+
+1. Copy the image to `Client images/` folder (outside repo)
+2. Add an entry in `scripts/generate-course-logos.mjs`:
+   ```javascript
+   await generateCourseLogo(`${CLIENT}/ISWM logo.jpeg`, `${OUT_DIR}/iswm.png`);
+   ```
+3. Run: `node scripts/generate-course-logos.mjs`
+4. Add to `COURSE_LOGO_MAP` in `CoursesScreen.tsx`:
+   ```typescript
+   const COURSE_LOGO_MAP: Record<number, string> = {
+     1: '/course-logos/cewm.png',
+     2: '/course-logos/iswm.png',  // add here
+   };
+   ```
+5. Add `logoUrl` to the course in `src/data/index.ts`
+6. Commit + push → Vercel auto-deploys
+
+Once `logo_url` column is added to Supabase, also run the SQL update and the frontend fallback map becomes redundant (but harmless to keep).
+
+---
+
+## 13. Navigation Architecture — App.tsx Routing
 
 ```typescript
 // App.tsx
@@ -723,7 +832,7 @@ case 'adminSession':  return <AdminSessionScreen onBack={() => navigate('home')}
 
 ---
 
-## 13. Razorpay Integration — ✅ IMPLEMENTED
+## 14. Razorpay Integration — ✅ IMPLEMENTED
 
 ### Step 1: Supabase Edge Function
 
@@ -810,7 +919,7 @@ const handlePay = async () => {
 
 ---
 
-## 14. QR Attendance Integration — ✅ IMPLEMENTED
+## 15. QR Attendance Integration — ✅ IMPLEMENTED
 
 Both packages are installed: `react-qr-reader` (scanning) + `qrcode.react` (display).
 
@@ -870,7 +979,7 @@ const markAttendance = async (code: string) => {
 
 ---
 
-## 15. PWA Configuration
+## 16. PWA Configuration
 
 ### Icon Requirements (CRITICAL)
 
@@ -897,22 +1006,38 @@ Icons must be in `public/icons/` with these exact names:
 
 ### PWA Install Behavior
 
-- `InstallBanner.tsx` uses `usePWAInstall.ts` hook
-- Listens for `beforeinstallprompt` browser event
-- Banner auto-appears when browser decides app is installable (~30 seconds on HTTPS)
-- **iOS Safari:** No `beforeinstallprompt` support — users must use Share → Add to Home Screen manually
+`InstallBanner.tsx` is a bottom sheet modal. It shows automatically after 1.5 seconds on any mobile device. Dismissed state is stored in `sessionStorage` key `aiwmr_install_seen` — reappears on next browser session (not on page reload).
+
+**The banner renders in `App.tsx` on the login screen (before login), not only after login.**
+
+Three sub-components inside `InstallBanner.tsx`:
+
+| Component | When shown | Content |
+|---|---|---|
+| `AndroidInstallSheet` | Android + `canInstall=true` (browser fired `beforeinstallprompt`) | "Install App" button that calls `prompt()` |
+| `AndroidManualSheet` | Android + `canInstall=false` (no native prompt — common on first visit) | Step-by-step: tap ⋮ → "Add to Home Screen" → "Install" |
+| `IOSSheet` | iOS (detected via `navigator.userAgent`) | Step-by-step: tap Share → "Add to Home Screen" → "Add" |
+
+> ⚠️ `beforeinstallprompt` does NOT fire on every Android visit. Chrome requires: HTTPS + service worker + manifest + no existing install + user has visited enough times. The `AndroidManualSheet` is the reliable fallback for first-time visitors.
+
+> ⚠️ The manual instruction says tap **"Install"** (not "Add") — Chrome on Android shows "Install" as the final button label.
+
+**`usePWAInstall.ts` hook:**
+- Listens for `beforeinstallprompt` — stores the event reference
+- Exposes `canInstall: boolean` and `triggerInstall: () => void`
+- `canInstall` is `false` until the browser fires the event (often never on first visit)
 
 ### Testing PWA Install
 
-1. `npm run build && npm run preview` (must be production build)
-2. Open Chrome → DevTools → Application → Manifest (check for errors)
-3. Wait 30 seconds
-4. Install banner appears OR click install icon in address bar
-5. On real Android: deploy to Vercel (HTTPS required), open in Chrome
+1. `npm run build && npm run preview` (must be production build — service worker only registers in prod)
+2. Open Chrome DevTools → Application → Manifest (check no errors)
+3. Open on real Android phone via Vercel URL (HTTPS required for service worker)
+4. Banner appears after 1.5 seconds — shows manual instructions on first visit
+5. After multiple visits, Chrome may fire `beforeinstallprompt` → "Install App" button appears instead
 
 ---
 
-## 16. Full Database Setup SQL
+## 17. Full Database Setup SQL
 
 Run in Supabase SQL Editor (safe to re-run — uses `if not exists`):
 
@@ -1146,7 +1271,7 @@ insert into courses (title,subtitle,duration,fee_inr,fee_usd,hours,seats,mode,st
 
 ---
 
-## 17. Quick Start Commands
+## 18. Quick Start Commands
 
 ```bash
 npm install               # install all dependencies
@@ -1160,7 +1285,7 @@ git push                  # auto-deploys to Vercel
 
 ---
 
-## 18. Known Issues & Gotchas
+## 19. Known Issues & Gotchas
 
 | Issue | Cause | Fix Applied |
 |---|---|---|
@@ -1178,12 +1303,17 @@ git push                  # auto-deploys to Vercel
 | Admin had no way to generate attendance QR | No admin tools | Fixed: `AdminSessionScreen` — generates, displays, and manages session QR codes |
 | Full curriculum visible to non-enrolled users | No gating on curriculum tab | Fixed: first 3 topics shown free, rest locked with "Enroll Now" overlay |
 | Vercel deploy fails on TS errors | Strict TypeScript mode | Run `npm run typecheck` locally first; fix all errors before pushing |
-| iOS PWA install prompt not showing | iOS doesn't support `beforeinstallprompt` | Expected behavior — iOS users use Share → Add to Home Screen |
-| Student enrolled but screens still locked | `access_granted` is still `false` | Admin must set `access_granted = true` in Supabase dashboard until Razorpay is wired |
+| iOS PWA install prompt not showing | iOS doesn't support `beforeinstallprompt` | Expected behavior — iOS users use Share → Add to Home Screen (instructions shown in IOSSheet) |
+| Android install banner never appeared | `canInstall` gated entire banner; `beforeinstallprompt` only fires after multiple visits | Fixed: banner always shows for Android after 1.5s; uses `AndroidManualSheet` as default, `AndroidInstallSheet` when native prompt available |
+| PWA install step said "Add" but Chrome shows "Install" | Wrong label in `AndroidManualSheet` | Fixed: step 3 now correctly says "Install" |
+| Student enrolled but screens still locked | `access_granted` is still `false` | Fixed with Razorpay integration — `access_granted: true` set on payment success. Manual DB toggle still needed for bank transfer payments |
+| Logo/course image showed white rectangular box | JPEG has white bg; `mix-blend-mode:multiply` inconsistent on mobile browsers (Comet etc.) | Fixed: scripts now remove white pixels via alpha-channel threshold (R,G,B >= 240 → transparent). No CSS `mix-blend-mode` needed |
+| Course thumbnail badges chopped by logo image | Logo image rendered above badges (z-index not set) | Fixed: badges have `zIndex:3` + `whiteSpace:'nowrap'`; text shortened to "CERT" and "INTER" |
+| CEWM logo not showing (from Supabase) | `courses` table has no `logo_url` column yet | Fixed: `COURSE_LOGO_MAP` in `CoursesScreen.tsx` provides frontend fallback keyed by course `id` |
 
 ---
 
-## 19. Security Checklist
+## 20. Security Checklist
 
 - ✅ `.env` in `.gitignore` — never committed to git
 - ✅ Only Supabase **anon key** in frontend (not service role key — that has admin access)
@@ -1195,7 +1325,7 @@ git push                  # auto-deploys to Vercel
 
 ---
 
-## 20. DRM / Video Content Protection
+## 21. DRM / Video Content Protection
 
 **Client's concern:** Prevent students from downloading/copying video content.
 
@@ -1215,13 +1345,14 @@ git push                  # auto-deploys to Vercel
 
 ---
 
-## 21. Customer Requirements Summary
+## 22. Customer Requirements Summary
 
 ### Source
 Requirements gathered from: Requirements.docx + WhatsApp conversations with Dr. Sushanth Gade
 
 ### Implemented ✅
 - Mobile-first PWA installable on Android + iOS
+- PWA install banner (Android native prompt + Android manual instructions + iOS Share instructions)
 - 15 real AIWMR courses with INR + USD dual pricing
 - Student self-registration with email verification
 - Admin dashboard with real stats
@@ -1231,13 +1362,15 @@ Requirements gathered from: Requirements.docx + WhatsApp conversations with Dr. 
 - 28-day attendance calendar grid
 - Certificate viewer with print-to-PDF download
 - Module listing with progress status
+- **Razorpay payment** ✅ — Edge Function deployed, real orders + registrations, `access_granted: true` on payment success
+- AIWMR brand logo on login screen + app icons (all generated from client JPEG via sharp)
+- CEWM course logo in course thumbnail + detail page (transparent PNG, no white box)
 
 ### Requested but Pending 🔧
-- Real Razorpay payment (client uses Razorpay for Indian payments)
 - QR scanner ✅ implemented — `react-qr-reader` installed, camera scan + manual code entry both working
 - Module video/PDF content viewer
 - Admin panel (student management, QR generation, certificate issuance, course CRUD)
-- Assessment/quiz system per module (grading rules confirmed — see Section 22)
+- Assessment/quiz system per module (grading rules confirmed — see Section 23)
 - Student individual performance dashboard per participant (confirmed requirement)
 - Notifications for upcoming live sessions
 - Proper PDF certificate generation (`@react-pdf/renderer`)
@@ -1249,7 +1382,7 @@ Requirements gathered from: Requirements.docx + WhatsApp conversations with Dr. 
 
 ---
 
-## 22. Assessment & Grading Rules (Confirmed by Dr. Sushanth Gade)
+## 23. Assessment & Grading Rules (Confirmed by Dr. Sushanth Gade)
 
 > Source: WhatsApp reply from Dr. Sushanth Gade, April 2026
 > Status: **Documented — NOT yet implemented**
@@ -1294,7 +1427,7 @@ Admin should also be able to view this dashboard for any student.
 
 ---
 
-## 23. Phase 2 Roadmap (Confirmed by Dr. Sushanth Gade)
+## 24. Phase 2 Roadmap (Confirmed by Dr. Sushanth Gade)
 
 > Source: WhatsApp reply from Dr. Sushanth Gade, April 2026
 > Status: **Documented — Phase 2, not in current scope**
