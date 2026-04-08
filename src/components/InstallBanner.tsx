@@ -69,7 +69,7 @@ const AndroidManualSheet: React.FC<{ onDismiss: () => void }> = ({ onDismiss }) 
     {[
       ['1', '⋮  Menu',      'Tap the 3-dot menu in the top-right of Chrome'],
       ['2', '➕  Add',       'Tap "Add to Home screen"'],
-      ['3', '✅  Done',      'Tap "Add" on the confirmation dialog'],
+      ['3', '✅  Install',   'Tap "Install" on the confirmation dialog'],
     ].map(([num, label, desc]) => (
       <div key={num} style={{ display: 'flex', gap: 14, alignItems: 'flex-start', marginBottom: 18 }}>
         <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--forest)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>{num}</div>
