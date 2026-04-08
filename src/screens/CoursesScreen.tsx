@@ -6,6 +6,13 @@ import type { Course, CourseMode } from '../types';
 type Filter = 'All' | CourseMode;
 interface Props { onNavigate:(screen:string, data?:unknown)=>void; }
 
+// Frontend fallback map — used when Supabase courses table doesn't yet have
+// a logo_url column. Add entries here as client provides course logos.
+// Once logo_url column is added to Supabase, row.logo_url takes precedence.
+const COURSE_LOGO_MAP: Record<number, string> = {
+  1: '/course-logos/cewm.png',   // Certificate in Environment & Waste Management
+};
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mapCourse(row: any): Course {
   return {
@@ -27,7 +34,8 @@ function mapCourse(row: any): Course {
     color:     row.color,
     icon:      row.icon,
     topics:    row.topics ?? [],
-    logoUrl:   row.logo_url ?? undefined,
+    // Prefer DB value; fall back to local map until logo_url column exists
+    logoUrl:   row.logo_url ?? COURSE_LOGO_MAP[row.id as number] ?? undefined,
   };
 }
 
