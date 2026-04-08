@@ -153,26 +153,27 @@ const CoursesScreen: React.FC<Props> = ({ onNavigate }) => {
                       }
                       {/* Certificate badge — top right */}
                       <div style={{
-                        position:'absolute', top:8, right:8,
+                        position:'absolute', top:8, right:8, zIndex:3,
                         background:'rgba(255,255,255,0.95)',
                         color: c.color,
                         fontSize:9, fontWeight:800,
                         padding:'3px 7px', borderRadius:20,
-                        letterSpacing:'0.5px',
+                        letterSpacing:'0.5px', whiteSpace:'nowrap',
                         fontFamily:"'DM Sans', sans-serif",
                       }}>
-                        ✦ CERTIFICATE
+                        ✦ CERT
                       </div>
                       {/* Level badge — top left */}
                       <div style={{
-                        position:'absolute', top:8, left:8,
+                        position:'absolute', top:8, left:8, zIndex:3,
                         background: levelColor(level),
                         color:'white',
                         fontSize:9, fontWeight:700,
                         padding:'3px 7px', borderRadius:20,
+                        whiteSpace:'nowrap',
                         fontFamily:"'DM Sans', sans-serif",
                       }}>
-                        {level.toUpperCase()}
+                        {level === 'Intermediate' ? 'INTER' : level.toUpperCase()}
                       </div>
                     </div>
 

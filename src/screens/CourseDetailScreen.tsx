@@ -204,11 +204,11 @@ const CourseDetailScreen: React.FC<Props> = ({ course, onBack, onNavigate }) => 
 
             {/* Official course logo — shown when client has provided one */}
             {course.logoUrl && (
-              <div style={{ textAlign: 'center', marginBottom: 18, padding: '16px 12px', background: 'var(--white)', borderRadius: 16, boxShadow: '0 2px 10px rgba(0,0,0,0.06)' }}>
+              <div style={{ textAlign: 'center', marginBottom: 18 }}>
                 <img
                   src={course.logoUrl}
                   alt={course.title}
-                  style={{ width: '82%', maxWidth: 340, height: 'auto' }}
+                  style={{ width: '82%', maxWidth: 340, height: 'auto', mixBlendMode: 'multiply' }}
                 />
               </div>
             )}
