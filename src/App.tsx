@@ -1,22 +1,24 @@
 import React, { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import SplashScreen       from './screens/SplashScreen';
-import LoginScreen        from './screens/LoginScreen';
-import RegisterScreen     from './screens/RegisterScreen';
-import HomeScreen         from './screens/HomeScreen';
-import CoursesScreen      from './screens/CoursesScreen';
-import CourseDetailScreen from './screens/CourseDetailScreen';
-import LearningScreen     from './screens/LearningScreen';
-import AttendanceScreen   from './screens/AttendanceScreen';
-import CertificateScreen    from './screens/CertificateScreen';
-import AdminSessionScreen   from './screens/AdminSessionScreen';
-import BottomNav            from './components/BottomNav';
-import InstallBanner      from './components/InstallBanner';
-import DemoBanner         from './components/DemoBanner';
-import type { Course }    from './types';
+import SplashScreen        from './screens/SplashScreen';
+import LoginScreen         from './screens/LoginScreen';
+import RegisterScreen      from './screens/RegisterScreen';
+import HomeScreen          from './screens/HomeScreen';
+import CoursesScreen       from './screens/CoursesScreen';
+import CourseDetailScreen  from './screens/CourseDetailScreen';
+import LearningScreen      from './screens/LearningScreen';
+import ModuleViewerScreen  from './screens/ModuleViewerScreen';
+import AssessmentScreen    from './screens/AssessmentScreen';
+import AttendanceScreen    from './screens/AttendanceScreen';
+import CertificateScreen   from './screens/CertificateScreen';
+import AdminSessionScreen  from './screens/AdminSessionScreen';
+import BottomNav           from './components/BottomNav';
+import InstallBanner       from './components/InstallBanner';
+import DemoBanner          from './components/DemoBanner';
+import type { Course, CourseModule } from './types';
 
-type ScreenId = 'home'|'courses'|'courseDetail'|'learning'|'attendance'|'certificates'|'adminSession';
-interface NavState { screen: ScreenId; data?: Course; }
+type ScreenId = 'home'|'courses'|'courseDetail'|'learning'|'attendance'|'certificates'|'adminSession'|'moduleViewer'|'assessment';
+interface NavState { screen: ScreenId; data?: Course | CourseModule; }
 
 const InnerApp: React.FC = () => {
   const { user, loading, isDemo } = useAuth();
@@ -44,17 +46,42 @@ const InnerApp: React.FC = () => {
     </>
   );
 
-  const activeTab = nav.screen==='courseDetail'?'courses':nav.screen;
+  const activeTab = (nav.screen === 'moduleViewer' || nav.screen === 'assessment')
+    ? 'learning'
+    : nav.screen === 'courseDetail' ? 'courses' : nav.screen;
 
   const renderScreen = () => {
     switch (nav.screen) {
-      case 'courseDetail':  return nav.data ? <CourseDetailScreen course={nav.data} onBack={()=>navigate('courses')} onNavigate={navigate}/> : null;
-      case 'courses':       return <CoursesScreen onNavigate={navigate}/>;
-      case 'learning':      return <LearningScreen onNavigate={navigate}/>;
-      case 'attendance':    return <AttendanceScreen onNavigate={navigate}/>;
-      case 'certificates':  return <CertificateScreen onNavigate={navigate}/>;
-      case 'adminSession':  return <AdminSessionScreen onBack={() => navigate('home')}/>;
-      default:              return <HomeScreen onNavigate={navigate}/>;
+      case 'courseDetail':
+        return nav.data ? <CourseDetailScreen course={nav.data as Course} onBack={()=>navigate('courses')} onNavigate={navigate}/> : null;
+      case 'courses':
+        return <CoursesScreen onNavigate={navigate}/>;
+      case 'learning':
+        return <LearningScreen onNavigate={navigate}/>;
+      case 'moduleViewer':
+        return nav.data
+          ? <ModuleViewerScreen
+              moduleData={nav.data as CourseModule}
+              onBack={() => navigate('learning')}
+              onStartAssessment={(m) => navigate('assessment', m)}
+            />
+          : null;
+      case 'assessment':
+        return nav.data
+          ? <AssessmentScreen
+              moduleData={nav.data as CourseModule}
+              onBack={() => navigate('learning')}
+              onRetake={() => navigate('assessment', nav.data)}
+            />
+          : null;
+      case 'attendance':
+        return <AttendanceScreen onNavigate={navigate}/>;
+      case 'certificates':
+        return <CertificateScreen onNavigate={navigate}/>;
+      case 'adminSession':
+        return <AdminSessionScreen onBack={() => navigate('home')}/>;
+      default:
+        return <HomeScreen onNavigate={navigate}/>;
     }
   };
 

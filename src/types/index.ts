@@ -40,7 +40,7 @@ export interface Course {
   logoUrl?: string;  // optional — only set for courses with an official logo image
 }
 
-export type ModuleType = 'video' | 'pdf' | 'quiz' | 'assignment';
+export type ModuleType = 'video' | 'pdf' | 'quiz' | 'assignment' | 'slideshow';
 export type ModuleStatus = 'completed' | 'in-progress' | 'locked';
 
 export interface CourseModule {
@@ -53,6 +53,17 @@ export interface CourseModule {
   description?: string;
   videoUrl?: string;
   pdfUrl?: string;
+  slideCount?: number;     // set when type === 'slideshow'
+  slideBaseUrl?: string;   // e.g. '/course-content/cewm/module-1/topic-1'
+}
+
+export interface Question {
+  id: number;
+  orderIndex: number;
+  questionText: string;
+  options: string[];       // parsed from jsonb array
+  correctIndex: number;
+  topicTag: string;
 }
 
 export interface RegistrationForm {

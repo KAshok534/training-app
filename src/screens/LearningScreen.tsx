@@ -7,7 +7,7 @@ import { useEnrollment } from '../hooks/useEnrollment';
 import { useAuth } from '../context/AuthContext';
 import type { CourseModule } from '../types';
 
-interface Props { onNavigate: (screen: string) => void; }
+interface Props { onNavigate: (screen: string, data?: unknown) => void; }
 
 const LearningScreen: React.FC<Props> = ({ onNavigate }) => {
   const { user } = useAuth();
@@ -43,15 +43,17 @@ const LearningScreen: React.FC<Props> = ({ onNavigate }) => {
       const mapped: CourseModule[] = (modsRes.data ?? []).map((m: any) => {
         const status = progressMap[m.id] ?? 'locked';
         return {
-          id:          m.id,
-          title:       m.title,
-          type:        m.type,
-          duration:    m.duration_label ?? `${m.duration_mins} min`,
-          status:      status as CourseModule['status'],
-          locked:      status === 'locked',
-          description: m.description,
-          videoUrl:    m.video_url,
-          pdfUrl:      m.pdf_url,
+          id:           m.id,
+          title:        m.title,
+          type:         m.type,
+          duration:     m.duration_label ?? `${m.duration_mins} min`,
+          status:       status as CourseModule['status'],
+          locked:       status === 'locked',
+          description:  m.description,
+          videoUrl:     m.video_url,
+          pdfUrl:       m.pdf_url,
+          slideCount:   m.slide_count    ?? undefined,
+          slideBaseUrl: m.slide_base_url ?? undefined,
         };
       });
 
@@ -130,7 +132,9 @@ const LearningScreen: React.FC<Props> = ({ onNavigate }) => {
                 <div style={{ flex:1 }}>
                   <div style={{ fontWeight:600, fontSize:14, color:m.locked ? '#aaa' : 'var(--charcoal)', lineHeight:1.3 }}>{m.title}</div>
                   <div style={{ display:'flex', gap:8, marginTop:4 }}>
-                    <span style={{ fontSize:12, color:'#bbb' }}>{m.type === 'video' ? '📹 Video' : '📄 PDF'}</span>
+                    <span style={{ fontSize:12, color:'#bbb' }}>
+                      {m.type === 'video' ? '📹 Video' : m.type === 'slideshow' ? '🖼️ Slideshow' : '📄 PDF'}
+                    </span>
                     <span style={{ fontSize:12, color:'#bbb', display:'flex', alignItems:'center', gap:2 }}>
                       <Icon name="clock" size={11} color="#ccc"/> {m.duration}
                     </span>
@@ -144,8 +148,11 @@ const LearningScreen: React.FC<Props> = ({ onNavigate }) => {
                     {m.description ?? 'This module covers core concepts with real-world case studies and practical examples.'}
                   </div>
                   <div style={{ display:'flex', gap:8 }}>
-                    <button style={{ flex:1, padding:'10px', background:'var(--forest)', color:'white', border:'none', borderRadius:10, fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'DM Sans', sans-serif" }}>
-                      ▶ {m.videoUrl || m.pdfUrl ? 'Open' : 'Start'} Module
+                    <button
+                      onClick={e => { e.stopPropagation(); onNavigate('moduleViewer', m as unknown); }}
+                      style={{ flex:1, padding:'10px', background:'var(--forest)', color:'white', border:'none', borderRadius:10, fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'DM Sans', sans-serif" }}
+                    >
+                      {m.type === 'slideshow' ? '🖼️ Open Slideshow' : m.videoUrl || m.pdfUrl ? '▶ Open Module' : '▶ Start Module'}
                     </button>
                   </div>
                 </div>
