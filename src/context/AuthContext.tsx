@@ -1,14 +1,14 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import type { User } from '../types';
 
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  recoveryMode: boolean;       // true when user clicked a password-reset link
+  recoveryMode: boolean;
   signIn: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
-  clearRecovery: () => void;   // call after password has been updated
+  clearRecovery: () => void;
   isDemo: boolean;
 }
 
@@ -22,13 +22,33 @@ const DEMO_USER: User = {
   designation: 'Environmental Consultant',
 };
 
+// Detect recovery URL synchronously at module load time (before any React render).
+// Covers both URL formats Supabase uses:
+//   Old implicit flow:  https://app.com/#access_token=...&type=recovery
+//   New PKCE flow:      https://app.com/?token_hash=...&type=recovery
+function detectRecoveryUrl(): boolean {
+  try {
+    const hash   = window.location.hash;
+    const search = window.location.search;
+    return hash.includes('type=recovery') || search.includes('type=recovery');
+  } catch {
+    return false;
+  }
+}
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser]               = useState<User | null>(null);
   const [loading, setLoading]         = useState(true);
-  const [recoveryMode, setRecoveryMode] = useState(false);
+  // Initialise synchronously — if the URL contains recovery tokens we know
+  // immediately on first render, before any async work completes.
+  const [recoveryMode, setRecoveryMode] = useState(detectRecoveryUrl);
   const isDemo = !isSupabaseConfigured;
+
+  // Keep a ref so the onAuthStateChange closure always sees the current value
+  const recoveryRef = useRef(recoveryMode);
+  recoveryRef.current = recoveryMode;
 
   const loadProfile = useCallback(async (userId: string) => {
     const { data } = await supabase
@@ -57,23 +77,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    // Check existing session on app load
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        loadProfile(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    });
+    // If we already detected a recovery URL, don't try to establish a normal
+    // session — just wait for Supabase to fire the PASSWORD_RECOVERY event.
+    if (recoveryRef.current) {
+      setLoading(false);
+    } else {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        // Double-check: don't log in if we're in recovery mode
+        if (recoveryRef.current) { setLoading(false); return; }
+        if (session?.user) {
+          loadProfile(session.user.id);
+        } else {
+          setLoading(false);
+        }
+      });
+    }
 
-    // Listen for login/logout/recovery events
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'PASSWORD_RECOVERY') {
-        // User clicked the reset-password link — show reset form, do NOT log in normally
+        // Supabase confirmed this is a recovery session
         setRecoveryMode(true);
         setLoading(false);
         return;
       }
+      // While in recovery mode, ignore all other auth events so we don't
+      // accidentally log the user in with the short-lived recovery session.
+      if (recoveryRef.current) return;
+
       if (session?.user) {
         loadProfile(session.user.id);
       } else {
@@ -86,25 +116,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [isDemo, loadProfile]);
 
   const signIn = useCallback(async (email: string, password: string): Promise<string | null> => {
-    if (isDemo) {
-      setUser(DEMO_USER);
-      return null;
-    }
+    if (isDemo) { setUser(DEMO_USER); return null; }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) return error.message;
     return null;
   }, [isDemo]);
 
   const signOut = useCallback(async () => {
-    if (!isDemo) {
-      await supabase.auth.signOut();
-    }
+    if (!isDemo) await supabase.auth.signOut();
     setUser(null);
   }, [isDemo]);
 
   const clearRecovery = useCallback(() => {
     setRecoveryMode(false);
     setUser(null);
+    // Remove recovery tokens from URL so a page refresh doesn't re-trigger
+    try {
+      window.history.replaceState(null, '', window.location.pathname);
+    } catch { /* ignore */ }
   }, []);
 
   return (

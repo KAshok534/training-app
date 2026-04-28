@@ -30,10 +30,10 @@ const InnerApp: React.FC = () => {
   const navigate = (screen: string, data?: unknown) =>
     setNav({ screen: screen as ScreenId, data: data as Course|undefined });
 
-  if (splash) return <SplashScreen onDone={()=>setSplash(false)}/>;
-
-  // User clicked a password-reset email link — show the set-new-password form
+  // Recovery link clicked — show reset form immediately, skip splash entirely
   if (recoveryMode) return <ResetPasswordScreen/>;
+
+  if (splash) return <SplashScreen onDone={()=>setSplash(false)}/>;
 
   if (loading) return (
     <div style={{ position:'fixed', inset:0, background:'var(--forest)', display:'flex', alignItems:'center', justifyContent:'center' }}>
