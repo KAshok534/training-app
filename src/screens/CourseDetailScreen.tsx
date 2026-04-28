@@ -90,11 +90,7 @@ const CourseDetailScreen: React.FC<Props> = ({ course, onBack, onNavigate }) => 
     );
 
     if (orderError || !order?.id) {
-      // Show the real error so we can diagnose — includes FunctionsHttpError message
-      const detail = orderError
-        ? (orderError.message ?? JSON.stringify(orderError))
-        : `order.id missing — response: ${JSON.stringify(order)}`;
-      setPayError(`Payment initiation failed: ${detail}`);
+      setPayError('Could not initiate payment. Please try again.');
       setPaying(false);
       return;
     }
