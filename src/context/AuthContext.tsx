@@ -5,8 +5,10 @@ import type { User } from '../types';
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
+  recoveryMode: boolean;       // true when user clicked a password-reset link
   signIn: (email: string, password: string) => Promise<string | null>;
   signOut: () => Promise<void>;
+  clearRecovery: () => void;   // call after password has been updated
   isDemo: boolean;
 }
 
@@ -23,8 +25,9 @@ const DEMO_USER: User = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser]       = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser]               = useState<User | null>(null);
+  const [loading, setLoading]         = useState(true);
+  const [recoveryMode, setRecoveryMode] = useState(false);
   const isDemo = !isSupabaseConfigured;
 
   const loadProfile = useCallback(async (userId: string) => {
@@ -63,8 +66,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    // Listen for login/logout events
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // Listen for login/logout/recovery events
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        // User clicked the reset-password link — show reset form, do NOT log in normally
+        setRecoveryMode(true);
+        setLoading(false);
+        return;
+      }
       if (session?.user) {
         loadProfile(session.user.id);
       } else {
@@ -93,8 +102,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   }, [isDemo]);
 
+  const clearRecovery = useCallback(() => {
+    setRecoveryMode(false);
+    setUser(null);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut, isDemo }}>
+    <AuthContext.Provider value={{ user, loading, recoveryMode, signIn, signOut, clearRecovery, isDemo }}>
       {children}
     </AuthContext.Provider>
   );

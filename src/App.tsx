@@ -11,17 +11,18 @@ import ModuleViewerScreen  from './screens/ModuleViewerScreen';
 import AssessmentScreen    from './screens/AssessmentScreen';
 import AttendanceScreen    from './screens/AttendanceScreen';
 import CertificateScreen   from './screens/CertificateScreen';
-import AdminSessionScreen  from './screens/AdminSessionScreen';
-import BottomNav           from './components/BottomNav';
-import InstallBanner       from './components/InstallBanner';
-import DemoBanner          from './components/DemoBanner';
+import AdminSessionScreen   from './screens/AdminSessionScreen';
+import ResetPasswordScreen  from './screens/ResetPasswordScreen';
+import BottomNav            from './components/BottomNav';
+import InstallBanner        from './components/InstallBanner';
+import DemoBanner           from './components/DemoBanner';
 import type { Course, CourseModule } from './types';
 
 type ScreenId = 'home'|'courses'|'courseDetail'|'learning'|'attendance'|'certificates'|'adminSession'|'moduleViewer'|'assessment';
 interface NavState { screen: ScreenId; data?: Course | CourseModule; }
 
 const InnerApp: React.FC = () => {
-  const { user, loading, isDemo } = useAuth();
+  const { user, loading, recoveryMode, isDemo } = useAuth();
   const [splash, setSplash]     = useState(true);
   const [authScreen, setAuthScreen] = useState<'login'|'register'>('login');
   const [nav, setNav] = useState<NavState>({ screen:'home' });
@@ -30,6 +31,9 @@ const InnerApp: React.FC = () => {
     setNav({ screen: screen as ScreenId, data: data as Course|undefined });
 
   if (splash) return <SplashScreen onDone={()=>setSplash(false)}/>;
+
+  // User clicked a password-reset email link — show the set-new-password form
+  if (recoveryMode) return <ResetPasswordScreen/>;
 
   if (loading) return (
     <div style={{ position:'fixed', inset:0, background:'var(--forest)', display:'flex', alignItems:'center', justifyContent:'center' }}>

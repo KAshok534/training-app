@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { Btn } from '../components/UI';
 import Icon from '../components/Icon';
@@ -7,16 +8,24 @@ interface Props { onShowRegister: () => void; }
 
 const LoginScreen: React.FC<Props> = ({ onShowRegister }) => {
   const { signIn, isDemo } = useAuth();
-  const [email, setEmail]     = useState(isDemo ? 'student@example.com' : '');
+
+  // Login state
+  const [email, setEmail]       = useState(isDemo ? 'student@example.com' : '');
   const [password, setPassword] = useState(isDemo ? 'password123' : '');
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState('');
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
+
+  // Forgot password state
+  const [forgotMode, setForgotMode]   = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotSent, setForgotSent]   = useState(false);
+  const [forgotError, setForgotError] = useState('');
 
   const handleLogin = async () => {
     setLoading(true); setError('');
     const err = await signIn(email, password);
     if (err) {
-      // Make Supabase's technical error messages friendlier
       if (err.toLowerCase().includes('email not confirmed'))
         setError('Please verify your email first. Check your inbox for the verification link.');
       else if (err.toLowerCase().includes('invalid login'))
@@ -24,6 +33,21 @@ const LoginScreen: React.FC<Props> = ({ onShowRegister }) => {
       else
         setError(err);
       setLoading(false);
+    }
+  };
+
+  const handleForgot = async () => {
+    setForgotError('');
+    if (!forgotEmail.trim()) { setForgotError('Please enter your email address.'); return; }
+    setForgotLoading(true);
+    const { error: err } = await supabase.auth.resetPasswordForEmail(forgotEmail.trim(), {
+      redirectTo: window.location.origin,
+    });
+    setForgotLoading(false);
+    if (err) {
+      setForgotError(err.message);
+    } else {
+      setForgotSent(true);
     }
   };
 
@@ -44,7 +68,9 @@ const LoginScreen: React.FC<Props> = ({ onShowRegister }) => {
         <div style={{ position:'absolute', inset:0, background:'radial-gradient(ellipse at 20% 60%, rgba(106,173,120,0.2) 0%, transparent 65%)' }}/>
         <div style={{ position:'relative' }}>
           <div style={{ fontSize:52, marginBottom:16 }}>🌿</div>
-          <div style={{ fontFamily:"'Playfair Display', serif", fontSize:38, color:'white', fontWeight:900, lineHeight:1.1 }}>Welcome<br/>Back</div>
+          <div style={{ fontFamily:"'Playfair Display', serif", fontSize:38, color:'white', fontWeight:900, lineHeight:1.1 }}>
+            {forgotMode ? 'Reset\nPassword' : 'Welcome\nBack'}
+          </div>
           <div style={{ color:'var(--sage)', fontSize:14, marginTop:10 }}>AIWMR Training Academy</div>
         </div>
       </div>
@@ -52,44 +78,108 @@ const LoginScreen: React.FC<Props> = ({ onShowRegister }) => {
       {/* Form card */}
       <div style={{ flex:1, background:'var(--cream)', borderRadius:'28px 28px 0 0', padding:'36px 28px 40px', overflowY:'auto', animation:'slideUp 0.45s cubic-bezier(0.34, 1.56, 0.64, 1)' }}>
 
-        {/* Official AIWMR logo */}
+        {/* AIWMR logo */}
         <div style={{ textAlign:'center', marginBottom:28 }}>
-          <img
-            src="/logo.png"
-            alt="AIWMR Training Academy"
-            style={{ width:'78%', maxWidth:320, height:'auto' }}
-          />
+          <img src="/logo.png" alt="AIWMR Training Academy" style={{ width:'78%', maxWidth:320, height:'auto' }}/>
         </div>
 
-        {error && (
-          <div style={{ background:'rgba(192,57,43,0.1)', border:'1px solid rgba(192,57,43,0.3)', borderRadius:12, padding:'12px 16px', marginBottom:20, fontSize:14, color:'var(--red)' }}>
-            {error}
-          </div>
-        )}
-        <div style={{ marginBottom:20 }}>
-          <label style={lbl}>Email Address</label>
-          <input style={inp} type="email" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email"/>
-        </div>
-        <div style={{ marginBottom:10 }}>
-          <label style={lbl}>Password</label>
-          <input style={inp} type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password"/>
-        </div>
-        <div style={{ textAlign:'right', marginBottom:28 }}>
-          <span style={{ fontSize:13, color:'var(--moss)', cursor:'pointer', fontWeight:600 }}>Forgot password?</span>
-        </div>
-        <Btn loading={loading} onClick={handleLogin}>
-          <span>Sign In</span>
-          <Icon name="arrow" size={16} color="white"/>
-        </Btn>
-        <div style={{ textAlign:'center', marginTop:24, fontSize:14, color:'#888' }}>
-          New to AIWMR?{' '}
-          <span onClick={onShowRegister} style={{ color:'var(--pine)', fontWeight:700, cursor:'pointer' }}>Register here</span>
-        </div>
-        {isDemo && (
-          <div style={{ marginTop:28, padding:16, background:'rgba(45,90,61,0.06)', borderRadius:14, border:'1px dashed var(--sage)' }}>
-            <div style={{ fontSize:12, color:'var(--moss)', fontWeight:700, marginBottom:4 }}>🎯 Demo mode — credentials pre-filled</div>
-            <div style={{ fontSize:12, color:'#888' }}>Connect Supabase in .env to enable real auth</div>
-          </div>
+        {/* ── FORGOT PASSWORD MODE ── */}
+        {forgotMode ? (
+          forgotSent ? (
+            /* Success state */
+            <div style={{ textAlign:'center', padding:'10px 0' }}>
+              <div style={{ fontSize:44, marginBottom:14 }}>📬</div>
+              <div style={{ fontFamily:"'Playfair Display', serif", fontSize:20, fontWeight:700, color:'var(--forest)', marginBottom:10 }}>
+                Check Your Inbox
+              </div>
+              <div style={{ fontSize:14, color:'#666', lineHeight:1.7, fontFamily:"'DM Sans', sans-serif", marginBottom:28 }}>
+                A password reset link has been sent to<br/>
+                <strong style={{ color:'var(--forest)' }}>{forgotEmail}</strong>.<br/>
+                Click the link in the email to set a new password.
+              </div>
+              <button
+                onClick={() => { setForgotMode(false); setForgotSent(false); setForgotEmail(''); }}
+                style={{ padding:'14px 28px', background:'var(--forest)', color:'white', border:'none', borderRadius:14, fontSize:14, fontWeight:700, fontFamily:"'DM Sans', sans-serif", cursor:'pointer' }}
+              >
+                Back to Login
+              </button>
+            </div>
+          ) : (
+            /* Email entry state */
+            <>
+              <div style={{ fontSize:13, color:'#888', lineHeight:1.6, marginBottom:24, fontFamily:"'DM Sans', sans-serif" }}>
+                Enter your registered email and we'll send you a link to reset your password.
+              </div>
+
+              {forgotError && (
+                <div style={{ background:'rgba(192,57,43,0.1)', border:'1px solid rgba(192,57,43,0.3)', borderRadius:12, padding:'12px 16px', marginBottom:20, fontSize:14, color:'var(--red)', fontFamily:"'DM Sans', sans-serif" }}>
+                  {forgotError}
+                </div>
+              )}
+
+              <div style={{ marginBottom:24 }}>
+                <label style={lbl}>Your Email Address</label>
+                <input
+                  style={inp} type="email" value={forgotEmail}
+                  onChange={e => setForgotEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                />
+              </div>
+
+              <Btn loading={forgotLoading} onClick={handleForgot}>
+                <span>Send Reset Link</span>
+              </Btn>
+
+              <div style={{ textAlign:'center', marginTop:20 }}>
+                <span
+                  onClick={() => { setForgotMode(false); setForgotError(''); }}
+                  style={{ fontSize:13, color:'var(--moss)', cursor:'pointer', fontWeight:600, fontFamily:"'DM Sans', sans-serif" }}
+                >
+                  ← Back to Login
+                </span>
+              </div>
+            </>
+          )
+        ) : (
+          /* ── NORMAL LOGIN MODE ── */
+          <>
+            {error && (
+              <div style={{ background:'rgba(192,57,43,0.1)', border:'1px solid rgba(192,57,43,0.3)', borderRadius:12, padding:'12px 16px', marginBottom:20, fontSize:14, color:'var(--red)' }}>
+                {error}
+              </div>
+            )}
+            <div style={{ marginBottom:20 }}>
+              <label style={lbl}>Email Address</label>
+              <input style={inp} type="email" value={email} onChange={e=>setEmail(e.target.value)} autoComplete="email"/>
+            </div>
+            <div style={{ marginBottom:10 }}>
+              <label style={lbl}>Password</label>
+              <input style={inp} type="password" value={password} onChange={e=>setPassword(e.target.value)} autoComplete="current-password"/>
+            </div>
+            <div style={{ textAlign:'right', marginBottom:28 }}>
+              <span
+                onClick={() => { setForgotMode(true); setForgotEmail(email); setError(''); }}
+                style={{ fontSize:13, color:'var(--moss)', cursor:'pointer', fontWeight:600 }}
+              >
+                Forgot password?
+              </span>
+            </div>
+            <Btn loading={loading} onClick={handleLogin}>
+              <span>Sign In</span>
+              <Icon name="arrow" size={16} color="white"/>
+            </Btn>
+            <div style={{ textAlign:'center', marginTop:24, fontSize:14, color:'#888' }}>
+              New to AIWMR?{' '}
+              <span onClick={onShowRegister} style={{ color:'var(--pine)', fontWeight:700, cursor:'pointer' }}>Register here</span>
+            </div>
+            {isDemo && (
+              <div style={{ marginTop:28, padding:16, background:'rgba(45,90,61,0.06)', borderRadius:14, border:'1px dashed var(--sage)' }}>
+                <div style={{ fontSize:12, color:'var(--moss)', fontWeight:700, marginBottom:4 }}>🎯 Demo mode — credentials pre-filled</div>
+                <div style={{ fontSize:12, color:'#888' }}>Connect Supabase in .env to enable real auth</div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
