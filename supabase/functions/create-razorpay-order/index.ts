@@ -20,16 +20,18 @@ const rzp = new Razorpay({
   key_secret: Deno.env.get('RAZORPAY_KEY_SECRET')!,
 });
 
+// Supabase JS client automatically sends x-client-info and apikey headers.
+// All must be listed here or the browser's CORS preflight will block the request.
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
 Deno.serve(async (req: Request) => {
   // Handle CORS pre-flight
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin':  '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      },
-    });
+    return new Response(null, { headers: CORS_HEADERS });
   }
 
   try {
@@ -38,7 +40,7 @@ Deno.serve(async (req: Request) => {
     if (!amount || amount <= 0) {
       return new Response(JSON.stringify({ error: 'Invalid amount' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
       });
     }
 
@@ -50,16 +52,13 @@ Deno.serve(async (req: Request) => {
 
     return new Response(JSON.stringify(order), {
       status: 200,
-      headers: {
-        'Content-Type':                'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });
   } catch (err) {
     console.error('Razorpay order error:', err);
     return new Response(JSON.stringify({ error: 'Failed to create order' }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     });
   }
 });
