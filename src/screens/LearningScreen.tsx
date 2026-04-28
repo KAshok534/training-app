@@ -41,7 +41,10 @@ const LearningScreen: React.FC<Props> = ({ onNavigate }) => {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mapped: CourseModule[] = (modsRes.data ?? []).map((m: any) => {
-        const status = progressMap[m.id] ?? 'locked';
+        const hasContent = !!(m.slide_base_url || m.video_url || m.pdf_url);
+        // If no progress record: modules WITH content are unlocked (in-progress),
+        // modules WITHOUT content remain locked until admin adds material.
+        const status = progressMap[m.id] ?? (hasContent ? 'in-progress' : 'locked');
         return {
           id:           m.id,
           title:        m.title,
@@ -126,7 +129,7 @@ const LearningScreen: React.FC<Props> = ({ onNavigate }) => {
               <div style={{ display:'flex', alignItems:'center', gap:14 }}>
                 <div style={{ width:44, height:44, borderRadius:12, background:statusBg(m.status), display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
                   {m.status === 'completed'   && <Icon name="check" size={18} color="white"/>}
-                  {m.status === 'in-progress' && <Icon name={m.type === 'video' ? 'video' : 'file'} size={18} color="white"/>}
+                  {m.status === 'in-progress' && <Icon name={m.type === 'video' ? 'video' : m.type === 'slideshow' ? 'play' : 'file'} size={18} color="white"/>}
                   {m.status === 'locked'      && <Icon name="lock" size={16} color="#bbb"/>}
                 </div>
                 <div style={{ flex:1 }}>
