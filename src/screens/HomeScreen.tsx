@@ -142,7 +142,7 @@ const AdminHome: React.FC<{ onNavigate:(s:string)=>void; signOut:()=>void }> = (
                 {[
                   ['📋', 'All Courses',    'courses'],
                   ['🔐', 'Session QR',    'adminSession'],
-                  ['👥', 'Attendance',    'attendance'],
+                  ['👥', 'Students',      'adminStudents'],
                   ['🏆', 'Certificates',  'certificates'],
                 ].map(([ic, label, screen]) => (
                   <button key={label} onClick={() => onNavigate(screen)}

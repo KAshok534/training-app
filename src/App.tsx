@@ -12,13 +12,14 @@ import AssessmentScreen    from './screens/AssessmentScreen';
 import AttendanceScreen    from './screens/AttendanceScreen';
 import CertificateScreen   from './screens/CertificateScreen';
 import AdminSessionScreen   from './screens/AdminSessionScreen';
+import AdminStudentsScreen  from './screens/AdminStudentsScreen';
 import ResetPasswordScreen  from './screens/ResetPasswordScreen';
 import BottomNav            from './components/BottomNav';
 import InstallBanner        from './components/InstallBanner';
 import DemoBanner           from './components/DemoBanner';
 import type { Course, CourseModule } from './types';
 
-type ScreenId = 'home'|'courses'|'courseDetail'|'learning'|'attendance'|'certificates'|'adminSession'|'moduleViewer'|'assessment';
+type ScreenId = 'home'|'courses'|'courseDetail'|'learning'|'attendance'|'certificates'|'adminSession'|'adminStudents'|'moduleViewer'|'assessment';
 interface NavState { screen: ScreenId; data?: Course | CourseModule; }
 
 const InnerApp: React.FC = () => {
@@ -84,6 +85,8 @@ const InnerApp: React.FC = () => {
         return <CertificateScreen onNavigate={navigate}/>;
       case 'adminSession':
         return <AdminSessionScreen onBack={() => navigate('home')}/>;
+      case 'adminStudents':
+        return <AdminStudentsScreen onBack={() => navigate('home')}/>;
       default:
         return <HomeScreen onNavigate={navigate}/>;
     }
