@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Btn } from '../components/UI';
-import Icon from '../components/Icon';
+import AuthShell, { DISPLAY, BODY } from '../components/AuthShell';
+import {
+  Eyebrow, Headline, Subhead, Divider, SectionLabel,
+  Field, PasswordField, PrimaryButton, ErrorBar, BottomCTA,
+} from '../components/AuthForm';
 
 interface Props { onShowLogin: () => void; }
 
@@ -14,27 +17,28 @@ interface Form {
 const EMPTY: Form = { name:'', email:'', phone:'', organization:'', designation:'', password:'', confirm:'' };
 
 const RegisterScreen: React.FC<Props> = ({ onShowLogin }) => {
-  const [form, setForm]     = useState<Form>(EMPTY);
-  const [loading, setLoading] = useState(false);
-  const [error, setError]   = useState('');
-  const [success, setSuccess] = useState(false);
+  const [form, setForm]                 = useState<Form>(EMPTY);
+  const [loading, setLoading]           = useState(false);
+  const [error, setError]               = useState('');
+  const [success, setSuccess]           = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [focused, setFocused]           = useState<string | null>(null);
 
   const upd = (k: keyof Form, v: string) => setForm(p => ({ ...p, [k]: v }));
 
   const handleRegister = async () => {
     setError('');
 
-    // Basic validation
-    if (!form.name.trim())     return setError('Full name is required.');
-    if (!form.email.trim())    return setError('Email is required.');
-    if (!form.phone.trim())    return setError('Phone number is required.');
-    if (form.password.length < 6) return setError('Password must be at least 6 characters.');
-    if (form.password !== form.confirm) return setError('Passwords do not match.');
+    if (!form.name.trim())                return setError('Full name is required.');
+    if (!form.email.trim())               return setError('Email is required.');
+    if (!form.phone.trim())               return setError('Phone number is required.');
+    if (form.password.length < 6)         return setError('Password must be at least 6 characters.');
+    if (form.password !== form.confirm)   return setError('Passwords do not match.');
 
     setLoading(true);
 
     // 1. Create auth user — name & phone go into raw_user_meta_data
-    //    The fn_handle_new_user trigger auto-creates the profiles row
+    //    The handle_new_user trigger auto-creates the profiles row
     const { data, error: signUpError } = await supabase.auth.signUp({
       email:    form.email.trim(),
       password: form.password,
@@ -59,122 +63,204 @@ const RegisterScreen: React.FC<Props> = ({ onShowLogin }) => {
     setSuccess(true);
   };
 
-  const inp: React.CSSProperties = {
-    width:'100%', padding:'14px 16px', borderRadius:14,
-    border:'1.5px solid var(--sand)', background:'var(--white)',
-    fontSize:15, color:'var(--charcoal)', outline:'none',
-    fontFamily:"'DM Sans', sans-serif",
-  };
-  const lbl: React.CSSProperties = {
-    fontSize:11, fontWeight:700, color:'var(--moss)',
-    textTransform:'uppercase', letterSpacing:'0.08em',
-    display:'block', marginBottom:8,
-  };
+  const mode: 'form' | 'sent' = success ? 'sent' : 'form';
 
   return (
-    <div style={{ minHeight:'100vh', background:'var(--forest)', display:'flex', flexDirection:'column' }}>
-      {/* Hero */}
-      <div style={{ flex:'0 0 30%', position:'relative', overflow:'hidden', display:'flex', flexDirection:'column', justifyContent:'flex-end', padding:'0 32px 28px' }}>
-        <div style={{ position:'absolute', inset:0, background:'radial-gradient(ellipse at 80% 40%, rgba(106,173,120,0.2) 0%, transparent 65%)' }}/>
-        <button onClick={onShowLogin} style={{ position:'absolute', top:20, left:20, background:'rgba(255,255,255,0.1)', border:'none', borderRadius:10, padding:'8px 12px', cursor:'pointer', display:'flex', alignItems:'center', gap:6 }}>
-          <Icon name="back" size={16} color="white"/>
-          <span style={{ color:'white', fontSize:13, fontFamily:"'DM Sans', sans-serif" }}>Login</span>
-        </button>
-        <div style={{ position:'relative' }}>
-          <div style={{ fontSize:44, marginBottom:12 }}>🎓</div>
-          <div style={{ fontFamily:"'Playfair Display', serif", fontSize:32, color:'white', fontWeight:900, lineHeight:1.1 }}>Create<br/>Account</div>
-          <div style={{ color:'var(--sage)', fontSize:13, marginTop:8 }}>AIWMR Training Academy</div>
-        </div>
-      </div>
+    <AuthShell>
+      <div key={mode} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
 
-      {/* Form */}
-      <div style={{ flex:1, background:'var(--cream)', borderRadius:'28px 28px 0 0', padding:'32px 28px 48px', overflowY:'auto', animation:'slideUp 0.4s cubic-bezier(0.34, 1.4, 0.64, 1)' }}>
+        <Eyebrow text={mode === 'form' ? '— Begin enrollment' : '— Verification pending'}/>
 
-        {success ? (
-          <div style={{ textAlign:'center', paddingTop:20 }}>
-            <div style={{ fontSize:64, marginBottom:16 }}>📧</div>
-            <div style={{ fontFamily:"'Playfair Display', serif", fontSize:24, fontWeight:900, color:'var(--forest)', marginBottom:10 }}>
-              Verify Your Email
-            </div>
-            <div style={{ fontSize:14, color:'#555', lineHeight:1.7, marginBottom:16 }}>
-              We've sent a verification link to
-            </div>
-            <div style={{ fontSize:15, fontWeight:700, color:'var(--pine)', marginBottom:16 }}>
-              {form.email}
-            </div>
-            <div style={{ fontSize:13, color:'#888', lineHeight:1.7, marginBottom:28, padding:'14px 16px', background:'rgba(45,90,61,0.06)', borderRadius:14, border:'1px dashed var(--sage)', textAlign:'left' }}>
-              1. Open your email inbox<br/>
-              2. Click the <strong>verification link</strong> from AIWMR<br/>
-              3. Come back here and log in
-            </div>
-            <Btn onClick={onShowLogin}>Go to Login</Btn>
-            <div style={{ marginTop:16, fontSize:12, color:'#aaa' }}>
-              Didn't receive it? Check your spam folder.
-            </div>
-          </div>
-        ) : (
+        <Headline
+          primary={mode === 'form' ? 'Begin your' : 'Almost'}
+          italicAccent={mode === 'form' ? 'journey.' : 'there.'}
+        />
+
+        <Subhead>
+          {mode === 'form'
+            ? <>Join Asia's leading institute for waste management & environmental research.</>
+            : <>We've sent a verification link to{' '}
+                <span style={{ color: 'var(--forest)', fontStyle: 'normal', fontWeight: 600, fontFamily: BODY }}>
+                  {form.email}
+                </span>. Open it to activate your account.
+              </>
+          }
+        </Subhead>
+
+        <Divider/>
+
+        {/* ── VERIFY YOUR EMAIL state ── */}
+        {mode === 'sent' && (
           <>
-            {error && (
-              <div style={{ background:'rgba(192,57,43,0.1)', border:'1px solid rgba(192,57,43,0.3)', borderRadius:12, padding:'12px 16px', marginBottom:20, fontSize:14, color:'var(--red)' }}>
-                {error}
+            <div style={{
+              marginBottom: 32,
+              animation: 'fadeUpSoft 0.6s ease 0.45s both',
+            }}>
+              <div style={{
+                fontFamily: BODY,
+                fontSize: 10,
+                fontWeight: 700,
+                color: 'var(--moss)',
+                letterSpacing: '0.28em',
+                textTransform: 'uppercase',
+                marginBottom: 14,
+              }}>
+                Next steps
               </div>
-            )}
-
-            {/* Required fields */}
-            {([
-              ['Full Name',    'name',  'text',     'Your full name'],
-              ['Email',        'email', 'email',    'email@example.com'],
-              ['Phone Number', 'phone', 'tel',      '+91 XXXXX XXXXX'],
-            ] as [string, keyof Form, string, string][]).map(([l, k, t, p]) => (
-              <div key={k} style={{ marginBottom:18 }}>
-                <label style={lbl}>{l} <span style={{ color:'var(--red)' }}>*</span></label>
-                <input style={inp} type={t} placeholder={p} value={form[k]}
-                  onChange={e => upd(k, e.target.value)} autoComplete={t}/>
-              </div>
-            ))}
-
-            {/* Optional fields */}
-            <div style={{ marginBottom:6, marginTop:4 }}>
-              <div style={{ fontSize:11, color:'#aaa', textTransform:'uppercase', letterSpacing:'0.08em', marginBottom:14 }}>Optional</div>
-              {([
-                ['Organization', 'organization', 'text', 'Company / Institution'],
-                ['Designation',  'designation',  'text', 'Your role / title'],
-              ] as [string, keyof Form, string, string][]).map(([l, k, t, p]) => (
-                <div key={k} style={{ marginBottom:18 }}>
-                  <label style={lbl}>{l}</label>
-                  <input style={inp} type={t} placeholder={p} value={form[k]}
-                    onChange={e => upd(k, e.target.value)}/>
-                </div>
-              ))}
+              <ol style={{
+                listStyle: 'none',
+                padding: 0,
+                margin: 0,
+                fontFamily: DISPLAY,
+                fontStyle: 'italic',
+                fontSize: 16,
+                color: 'var(--charcoal)',
+                opacity: 0.78,
+                lineHeight: 1.7,
+              }}>
+                <li style={{ display: 'flex', gap: 14, marginBottom: 10 }}>
+                  <span style={{ color: 'var(--moss)', fontWeight: 500, minWidth: 14 }}>i.</span>
+                  <span>Open the email inbox of <span style={{ fontStyle: 'normal', fontFamily: BODY, fontWeight: 600, color: 'var(--forest)' }}>{form.email}</span></span>
+                </li>
+                <li style={{ display: 'flex', gap: 14, marginBottom: 10 }}>
+                  <span style={{ color: 'var(--moss)', fontWeight: 500, minWidth: 14 }}>ii.</span>
+                  <span>Click the verification link from AIWMR</span>
+                </li>
+                <li style={{ display: 'flex', gap: 14 }}>
+                  <span style={{ color: 'var(--moss)', fontWeight: 500, minWidth: 14 }}>iii.</span>
+                  <span>Return here to sign in</span>
+                </li>
+              </ol>
             </div>
 
-            {/* Password */}
-            <div style={{ marginBottom:18 }}>
-              <label style={lbl}>Password <span style={{ color:'var(--red)' }}>*</span></label>
-              <input style={inp} type="password" placeholder="Min. 6 characters" value={form.password}
-                onChange={e => upd('password', e.target.value)} autoComplete="new-password"/>
-            </div>
-            <div style={{ marginBottom:28 }}>
-              <label style={lbl}>Confirm Password <span style={{ color:'var(--red)' }}>*</span></label>
-              <input style={inp} type="password" placeholder="Re-enter password" value={form.confirm}
-                onChange={e => upd('confirm', e.target.value)} autoComplete="new-password"/>
+            <div style={{ animation: 'fadeUpSoft 0.6s ease 0.55s both' }}>
+              <PrimaryButton onClick={onShowLogin} label="Go to Sign In" arrow="↩"/>
             </div>
 
-            <Btn loading={loading} onClick={handleRegister}>
-              <span>Create Account</span>
-              <Icon name="arrow" size={16} color="white"/>
-            </Btn>
-
-            <div style={{ textAlign:'center', marginTop:20, fontSize:14, color:'#888' }}>
-              Already have an account?{' '}
-              <span onClick={onShowLogin} style={{ color:'var(--pine)', fontWeight:700, cursor:'pointer' }}>
-                Sign In
-              </span>
+            <div style={{
+              textAlign: 'center',
+              marginTop: 24,
+              fontFamily: DISPLAY,
+              fontStyle: 'italic',
+              fontSize: 13,
+              color: 'var(--moss)',
+              opacity: 0.7,
+              animation: 'fadeUpSoft 0.6s ease 0.7s both',
+            }}>
+              Didn't receive it? Check your spam folder.
             </div>
           </>
         )}
+
+        {/* ── FORM state ── */}
+        {mode === 'form' && (
+          <>
+            {error && <ErrorBar text={error}/>}
+
+            <Field
+              id="name"
+              label="Full Name"
+              value={form.name}
+              onChange={v => upd('name', v)}
+              focused={focused}
+              setFocused={setFocused}
+              autoComplete="name"
+              required
+              delay={0.42}
+            />
+            <Field
+              id="email"
+              label="Email Address"
+              type="email"
+              value={form.email}
+              onChange={v => upd('email', v)}
+              focused={focused}
+              setFocused={setFocused}
+              autoComplete="email"
+              required
+              delay={0.48}
+            />
+            <Field
+              id="phone"
+              label="Phone Number"
+              type="tel"
+              value={form.phone}
+              onChange={v => upd('phone', v)}
+              focused={focused}
+              setFocused={setFocused}
+              autoComplete="tel"
+              placeholder="+91 XXXXX XXXXX"
+              required
+              delay={0.54}
+            />
+
+            <SectionLabel text="Optional" delay={0.6}/>
+
+            <Field
+              id="organization"
+              label="Organization"
+              value={form.organization}
+              onChange={v => upd('organization', v)}
+              focused={focused}
+              setFocused={setFocused}
+              placeholder="Company or institution"
+              delay={0.64}
+            />
+            <Field
+              id="designation"
+              label="Designation"
+              value={form.designation}
+              onChange={v => upd('designation', v)}
+              focused={focused}
+              setFocused={setFocused}
+              placeholder="Your role or title"
+              delay={0.7}
+            />
+
+            <SectionLabel text="Choose a password" delay={0.76}/>
+
+            <PasswordField
+              id="password"
+              label="Password"
+              value={form.password}
+              onChange={v => upd('password', v)}
+              focused={focused}
+              setFocused={setFocused}
+              show={showPassword}
+              toggleShow={() => setShowPassword(p => !p)}
+              autoComplete="new-password"
+              placeholder="Minimum 6 characters"
+              delay={0.8}
+            />
+            <PasswordField
+              id="confirm"
+              label="Confirm Password"
+              value={form.confirm}
+              onChange={v => upd('confirm', v)}
+              focused={focused}
+              setFocused={setFocused}
+              show={showPassword}
+              toggleShow={() => setShowPassword(p => !p)}
+              autoComplete="new-password"
+              placeholder="Re-enter password"
+              delay={0.84}
+            />
+
+            <div style={{ marginTop: 14, animation: 'fadeUpSoft 0.6s ease 0.9s both' }}>
+              <PrimaryButton onClick={handleRegister} loading={loading} label="Create Account"/>
+            </div>
+
+            <BottomCTA
+              eyebrow="Already enrolled"
+              label="Sign in instead"
+              onClick={onShowLogin}
+              delay={1.0}
+            />
+          </>
+        )}
       </div>
-    </div>
+    </AuthShell>
   );
 };
+
 export default RegisterScreen;
