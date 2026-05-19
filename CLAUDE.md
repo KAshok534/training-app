@@ -17,7 +17,7 @@
 | **Primary Markets** | India (INR pricing) + Oman / International (USD pricing) |
 | **Live URL** | https://training-app-tawny.vercel.app |
 | **Repository** | C:\Users\Ashok\source\repos\aiwmr-app-pwa\aiwmr-app |
-| **Last Updated** | April 2026 — Razorpay + Brand logos + PWA install banner |
+| **Last Updated** | May 2026 — Assessment system + Performance dashboard + Admin students/rewards/cert issuance + Forgot password |
 
 ---
 
@@ -61,16 +61,22 @@ src/
 │   ├── EnrollmentGate.tsx      — KEY COMPONENT: gates screens behind paid enrollment
 │   └── PreCourseInstructionsModal.tsx — One-time "Before You Begin" instructions sheet (12 rules)
 ├── screens/
-│   ├── SplashScreen.tsx        — 2-second animated splash with AIWMR branding
-│   ├── LoginScreen.tsx         — Email/password login + AIWMR logo in form card
-│   ├── RegisterScreen.tsx      — Full sign-up with email verification
-│   ├── HomeScreen.tsx          — 3-state dashboard (Admin / Enrolled / Not-enrolled)
-│   ├── CoursesScreen.tsx       — 15 courses listing; COURSE_LOGO_MAP for per-course logos
-│   ├── CourseDetailScreen.tsx  — Course detail + 3-step registration flow (real Razorpay payment)
-│   ├── AdminSessionScreen.tsx  — Admin: generate session QR codes, display & manage live sessions
-│   ├── LearningScreen.tsx      — Module list (gated — requires paid enrollment)
-│   ├── AttendanceScreen.tsx    — QR camera scan + manual code entry + monthly calendar (gated)
-│   └── CertificateScreen.tsx   — Certificate viewer + download (gated)
+│   ├── SplashScreen.tsx           — 2-second animated splash with AIWMR branding
+│   ├── LoginScreen.tsx            — Email/password login + AIWMR logo + Forgot password inline form
+│   ├── RegisterScreen.tsx         — Full sign-up with email verification
+│   ├── ResetPasswordScreen.tsx    — Password reset form (shown when Supabase recovery URL detected)
+│   ├── HomeScreen.tsx             — 3-state dashboard (Admin / Enrolled / Not-enrolled); EnrolledHome has 📊 Performance shortcut
+│   ├── CoursesScreen.tsx          — 15 courses listing; COURSE_LOGO_MAP for per-course logos
+│   ├── CourseDetailScreen.tsx     — Course detail + 3-step registration flow (real Razorpay payment)
+│   ├── LearningScreen.tsx         — Module list (gated); shows latest assessment score per module + retake button
+│   ├── ModuleViewerScreen.tsx     — Swipeable slideshow viewer (drag/click left/right). "Take Assessment" CTA on last slide
+│   ├── AssessmentScreen.tsx       — 25-question MCQ engine, instant grading, score result, 90%+ reward banner, fail-retake
+│   ├── PerformanceScreen.tsx      — Student dashboard: overall avg score ring, stats grid, per-module scores, topic mastery bars, cert eligibility
+│   ├── AttendanceScreen.tsx       — QR camera scan + manual code entry + monthly calendar (gated)
+│   ├── CertificateScreen.tsx      — Certificate viewer + download (gated)
+│   ├── AdminSessionScreen.tsx     — Admin: generate session QR codes, display & manage live sessions
+│   ├── AdminStudentsScreen.tsx    — Admin: list all registrations, grant/revoke access toggle, issue certificate
+│   └── AdminRewardsScreen.tsx     — Admin: list 90%+ achievers with Email/Call/WhatsApp contact buttons
 ├── App.tsx                     — Root routing logic (InstallBanner renders on login screen too)
 ├── main.tsx                    — Entry point
 └── styles/index.css            — Global CSS variables, animations, PWA layout
@@ -79,6 +85,8 @@ public/
 ├── logo.png                    — AIWMR brand logo (600×245, transparent background PNG)
 ├── course-logos/
 │   └── cewm.png                — CEWM flagship course logo (600×400, transparent background PNG)
+├── course-content/
+│   └── cewm/module-1/topic-1/  — 44 slide JPGs (1280×720) for CEWM Module 1 Topic 1 (slide-01.jpg → slide-44.jpg)
 ├── icons/                      — PWA icons (all generated from AIWMR logo.jpeg via sharp)
 │   ├── android-chrome-192x192.png
 │   ├── android-chrome-512x512.png
@@ -94,9 +102,12 @@ scripts/                        — Image generation utilities (run with: node s
 vite.config.ts                  — Vite + PWA plugin config
 
 supabase/
-└── functions/
-    └── create-razorpay-order/
-        └── index.ts            — Edge Function: creates Razorpay orders server-side (Key Secret stays off browser)
+├── functions/
+│   └── create-razorpay-order/
+│       └── index.ts            — Edge Function: creates Razorpay orders server-side (Key Secret stays off browser; full CORS headers)
+└── sql/
+    ├── 01_assessment_schema.sql       — Creates/extends questions, assessment_attempts, student_topic_scores. Adds 'slideshow' enum value + slide_count/slide_base_url cols to modules
+    └── 02_seed_cewm_module1_topic1.sql — Inserts module 1001 + 25 MCQ questions for CEWM Module 1 Topic 1
 ```
 
 ---
@@ -141,11 +152,14 @@ If `.env` is missing, `isSupabaseConfigured = false` and app runs with mock DEMO
 | `courses` | All 15 AIWMR courses |
 | `batches` | Batch schedules per course (morning/evening) |
 | `registrations` | Student course enrollments + payment tracking |
-| `modules` | Course modules (video/pdf/quiz/assignment) |
+| `modules` | Course modules (video/pdf/slideshow/quiz/assignment); `slideshow` type added in May 2026 |
 | `user_progress` | Per-student module completion status |
 | `attendance` | QR-scanned attendance records |
 | `session_qr_codes` | Admin-generated QR codes per session |
 | `certificates` | Issued certificates with cert_id |
+| `questions` | MCQ pool per module (options jsonb, correct_index, topic_tag) |
+| `assessment_attempts` | Every quiz submission: score_pct, passed, reward_earned, attempted_at |
+| `student_topic_scores` | Per-topic score breakdown (powers Topic Mastery bars in PerformanceScreen) |
 | `notifications` | System notifications (table exists, UI not yet built) |
 
 ### Critical Columns
@@ -218,13 +232,50 @@ created_at          timestamptz
 id             serial PRIMARY KEY
 course_id      integer references courses(id)
 title          text
-type           text  -- 'video' | 'pdf' | 'quiz' | 'assignment'
+type           module_type  -- PG ENUM: 'video' | 'pdf' | 'slideshow' | 'quiz' | 'assignment'
 duration_label text  -- e.g. '45 min'
 duration_mins  integer
 order_index    integer
 video_url      text  -- Supabase Storage URL
 pdf_url        text  -- Supabase Storage URL
+slide_count    integer       -- for slideshow modules (e.g. 44)
+slide_base_url text          -- for slideshow modules — folder containing slide-01.jpg ... slide-N.jpg
 description    text
+```
+> ⚠️ `type` is a PostgreSQL **ENUM**, not text+CHECK. Adding values requires `ALTER TYPE module_type ADD VALUE IF NOT EXISTS '...'` as a **standalone statement** (cannot run inside DO block / transaction).
+
+**`questions`** (MCQ pool)
+```sql
+id             serial PRIMARY KEY
+module_id      integer references modules(id) on delete cascade
+order_index    integer
+question_text  text
+options        jsonb    -- e.g. '["Option A","Option B","Option C","Option D"]'::jsonb
+correct_index  integer  -- 0-based index into options
+correct_id     text     -- pre-existing NOT NULL column; we write same value as correct_index
+topic_tag      text     -- topic name for student_topic_scores aggregation
+```
+> ⚠️ Pre-existing schema has `correct_id` as NOT NULL. INSERTs must populate BOTH `correct_index` and `correct_id`.
+> ⚠️ `options` is `jsonb` — write as `'["A","B"]'::jsonb` cast, NOT `ARRAY['A','B']` (PG `text[]` is incompatible).
+
+**`assessment_attempts`**
+```sql
+id             uuid PRIMARY KEY
+user_id        uuid references profiles(id) on delete cascade
+module_id      integer references modules(id) on delete cascade
+score_pct      numeric  -- 0-100
+passed         boolean  -- score_pct >= 60
+reward_earned  boolean  -- score_pct >= 90 (powers AdminRewardsScreen)
+attempted_at   timestamptz default now()
+```
+
+**`student_topic_scores`** (powers Topic Mastery bars)
+```sql
+id           uuid PRIMARY KEY
+user_id      uuid references profiles(id) on delete cascade
+topic_tag    text not null
+score_pct    numeric
+-- upserted on every assessment submission, grouped by topic_tag
 ```
 
 **`attendance`**
@@ -260,6 +311,22 @@ All tables have RLS enabled. Key policies:
 - `registrations`: `user_id = auth.uid()` for select + insert
 - `attendance`: must own the `registration_id`
 - `certificates`: must own the `registration_id`
+- `assessment_attempts`, `student_topic_scores`, `questions`: student reads/writes own rows
+- **Admin policies** (May 2026): admin can read+update all `registrations`, read all `assessment_attempts`, read+insert all `certificates`
+
+```sql
+-- Admin policies — required for AdminStudentsScreen, AdminRewardsScreen, and Issue Cert button
+CREATE POLICY "Admins read all registrations" ON registrations
+  FOR SELECT USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+CREATE POLICY "Admins update registrations" ON registrations
+  FOR UPDATE USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+CREATE POLICY "Admins read all assessment_attempts" ON assessment_attempts
+  FOR SELECT USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+CREATE POLICY "Admins read all certificates" ON certificates
+  FOR SELECT USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+CREATE POLICY "Admins insert certificates" ON certificates
+  FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+```
 
 ---
 
@@ -294,7 +361,26 @@ User logs in (LoginScreen)
 User logs out
   → supabase.auth.signOut() → onAuthStateChange fires → setUser(null)
   → App renders LoginScreen
+
+User clicks "Forgot password?" (LoginScreen — inline form)
+  → supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin })
+  → Supabase sends recovery email (uses Supabase Auth → Site URL setting; MUST be set to live URL not localhost)
+  → Show "Check your email" success state
+
+User clicks recovery link in email
+  → URL contains either #type=recovery (implicit) or ?type=recovery (PKCE)
+  → AuthContext.detectRecoveryUrl() runs SYNCHRONOUSLY in useState initializer (BEFORE splash) — sets recoveryMode=true
+  → App.tsx checks recoveryMode FIRST (before splash), renders ResetPasswordScreen
+  → Supabase fires PASSWORD_RECOVERY event → recoveryRef confirms recovery state
+  → Other auth events ignored while recoveryRef.current is true (prevents accidental login via short-lived recovery session)
+
+User submits new password (ResetPasswordScreen)
+  → supabase.auth.updateUser({ password })
+  → Success → signOut() → clearRecovery() (also strips recovery tokens from URL via history.replaceState)
+  → User returned to LoginScreen
 ```
+
+> ⚠️ **Race condition fix:** Initial implementation lost the PASSWORD_RECOVERY event because the 2s splash screen blocked rendering. Fixed by using `useState(detectRecoveryUrl)` — synchronous URL detection at module load, before any async work. `recoveryRef` (useRef) keeps `onAuthStateChange` closure from going stale.
 
 ### User Object (TypeScript)
 
@@ -626,60 +712,54 @@ These 15 courses exist in BOTH Supabase AND `src/data/index.ts` (as local fallba
 - **CEWM course logo** in CoursesScreen thumbnail + CourseDetailScreen Overview tab (`public/course-logos/cewm.png` — transparent PNG, 600×400)
 - **PWA install banner** (`InstallBanner.tsx`) — bottom sheet for Android (native prompt OR manual 3-dot instructions) + iOS (Share → Add to Home Screen), shown after 1.5s on mobile, dismissed per session via `sessionStorage`
 - **Pre-course instructions modal** (`PreCourseInstructionsModal.tsx`) — 12-item "Before You Begin" bottom sheet on CourseDetailScreen, shown once per user permanently via `localStorage`
+- **Forgot password + reset flow** (May 2026) — LoginScreen inline forgot form + `ResetPasswordScreen` + AuthContext recovery detection (synchronous URL parsing, recoveryRef closure-safe)
+- **Assessment/Quiz system** (May 2026) — `ModuleViewerScreen` (swipeable slideshow) + `AssessmentScreen` (25 MCQs, grade ≥60% pass / ≥90% reward) + DB schema (questions/assessment_attempts/student_topic_scores) + seeded 25 questions for CEWM Module 1 Topic 1
+- **Slideshow module type** (May 2026) — `'slideshow'` added to `module_type` enum + `slide_count`/`slide_base_url` columns on `modules`; first 44 slides live at `/course-content/cewm/module-1/topic-1/`
+- **Module unlock logic** (May 2026) — modules with content (`slide_base_url` OR `video_url` OR `pdf_url`) default to `'in-progress'`; previously all defaulted to `'locked'`
+- **Score persistence on LearningScreen** (May 2026) — module cards show latest `assessment_attempts` row with pass/fail badge, reward 🏆, "Last Assessment Score" panel, and "🔄 Retake" button for failed attempts
+- **Student Performance Dashboard** (`PerformanceScreen.tsx`, May 2026) — overall score ring (SVG donut), 4-stat grid, per-module scores list, **Topic Mastery bars** from `student_topic_scores`, certificate eligibility section. Reached via 📊 card on EnrolledHome
+- **Admin Students screen** (`AdminStudentsScreen.tsx`, May 2026) — lists ALL registrations with profile+course joined, filter by All/Pending/Granted, search by name/email/course/reg-code, **Grant/Revoke access toggle**, **Issue Certificate button** (uses cert_id trigger). Pending count shown in header
+- **Admin Rewards screen** (`AdminRewardsScreen.tsx`, May 2026) — lists all `reward_earned=true` attempts with student/module/course info, expand for **Email / Call / WhatsApp** contact buttons (mailto/tel/wa.me with pre-filled congratulatory text from Dr. Sushanth), filter All/Month/Week
+- **Role-aware BottomNav** (May 2026) — admins see Home/Courses/Students/Sessions/Rewards; students see Home/Courses/Learning/Attendance/Certs. Eliminates admin landing on enrollment-gated student screens
+- **Razorpay CORS fix** (May 2026) — Edge Function `create-razorpay-order` now sends `Access-Control-Allow-Headers: authorization, x-client-info, apikey, content-type` on ALL responses (OPTIONS preflight + 200 + 400 + 500). Was blocking payments with "Could not initiate payment" error
+- **Admin RLS policies** (May 2026) — admin can read+update all registrations, read all assessment_attempts, read+insert certificates (see Section 5 SQL)
 
 ### 🔧 PENDING (in priority order)
 
-#### P1 — Critical for Real Usage
+#### P0 — Content (the real August blocker)
 
-1. **Add Vercel env vars** — `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` + `VITE_RAZORPAY_KEY_ID` in Vercel dashboard → Settings → Environment Variables → Production → Redeploy
+Sushanth has provided slides + questions for CEWM Module 1 Topic 1 only. The other 5 CEWM modules + 14 other courses need content before they can launch.
 
-2. **Set admin name in DB:**
-   ```sql
-   UPDATE profiles SET name = 'Dr. Sushanth Gade'
-   WHERE id = 'e9da4f7e-ae28-44c6-b703-9c0d403eda22';
-   ```
+Each new topic needs:
+1. Export PPT slides to JPGs (1280×720) into `public/course-content/<course>/<module>/<topic>/`
+2. Insert module row into `modules` (type=`slideshow`, set `slide_count` + `slide_base_url`)
+3. Insert 25 questions per assessment into `questions` (with `options` jsonb, `correct_index` + `correct_id`, `topic_tag`)
 
-3. **Swap Razorpay test keys → live keys** when client's Razorpay account is KYC verified:
+See `supabase/sql/02_seed_cewm_module1_topic1.sql` as the reference template.
+
+#### P1 — Production hardening
+
+1. **Server-side Razorpay signature verification** — Edge Function currently trusts client's `razorpay_signature` claim. Should verify HMAC-SHA256 of `order_id|payment_id` against Razorpay key secret before marking `access_granted=true`. Security gap.
+
+2. **Swap Razorpay test keys → live keys** when client's Razorpay KYC clears:
    - Replace `VITE_RAZORPAY_KEY_ID` in `.env` and Vercel with `rzp_live_*`
-   - Run `supabase secrets set RAZORPAY_KEY_ID=rzp_live_*` + `supabase secrets set RAZORPAY_KEY_SECRET=<live_secret>`
-   - Redeploy Edge Function: `npx supabase functions deploy create-razorpay-order --no-verify-jwt`
+   - `supabase secrets set RAZORPAY_KEY_ID=rzp_live_*` + `supabase secrets set RAZORPAY_KEY_SECRET=<live_secret>`
+   - `npx supabase functions deploy create-razorpay-order --no-verify-jwt`
 
-4. **Server-side Razorpay signature verification** — currently skipped; should verify `razorpay_signature` in the Edge Function before trusting payment success
+#### P2 — Future feature completion
 
-#### P2 — Core Feature Completion
+3. **Video/PDF module viewers** — slideshow viewer is done; video and PDF module types still need a viewer screen. Needed when Sushanth provides non-slideshow content
+4. **Certificate auto-issuance** — currently admin must tap "Issue Cert" manually. Should auto-trigger when all `user_progress` for a course = `'completed'` (DB trigger or scheduled Edge Function)
+5. **Course + module CRUD UI for admin** — admin can't add courses/modules from the app. Goes to Supabase dashboard. Add when adding content frequently enough to need it
+6. **Batch management UI** — admin can't edit batches from the app
 
-4. **Video/PDF Module Viewer** — "Open Module" button in LearningScreen is unconnected
-   - Videos: Supabase Storage signed URLs or YouTube/Vimeo embed
-   - PDFs: open in iframe or new tab
-   - Update `user_progress`: `in-progress` when opened, `completed` when finished
+#### P3 — Enhancements
 
-5. **Certificate auto-issuance** — Currently admin must manually insert certificates
-   - Trigger: when all `user_progress` for a course are `completed`
-   - Could be a Supabase Edge Function or DB trigger
-
-#### P3 — Admin Panel
-
-6. **Full Admin Panel** — Admin currently has: stats dashboard + 🔐 Session QR manager. Still needs:
-   - Student list with enrollment status + manual `access_granted` toggle (for bank transfer / offline payments)
-   - Manual certificate issuance UI
-   - Course + module CRUD (upload videos/PDFs to Supabase Storage)
-   - Batch management
-
-7. **Admin route protection** — Admin can currently navigate to student screens via bottom nav
-
-#### P4 — Enhancements
-
-8. **PDF Certificate generation** — Use `@react-pdf/renderer` for proper printable certificate
-
-9. **Offline UI** — Show "You're offline" banner when `navigator.onLine` is false
-
-10. **Notifications** — `notifications` table exists in DB, no UI built
-
-11. **Assessment/Quiz system** — `questions` + `assessment_attempts` tables in DB, no frontend (see Section 22 for confirmed grading rules)
-
-12. **Student topic-level analytics** — `student_topic_scores` table in DB, no frontend
-
-13. **Module unlock logic** — Currently all modules start `locked`; no business logic for sequential unlocking
+7. **PDF Certificate** (`@react-pdf/renderer`) — currently HTML print fallback. First students complete CEWM ~Dec 2026
+8. **Notifications UI** — `notifications` table exists, no frontend. Bell icon on HomeScreen already has unread dot but isn't wired
+9. **Offline banner** — `navigator.onLine` listener
+10. **International payment** — USD pricing exists in DB; Razorpay live needs to support USD too for Oman/overseas
+11. **Phase 2** — see Section 25 (session recordings, newsletter, online consultation)
 
 ---
 
@@ -802,36 +882,57 @@ Once `logo_url` column is added to Supabase, also run the SQL update and the fro
 
 ```typescript
 // App.tsx
-type ScreenId = 'home' | 'courses' | 'courseDetail' | 'learning' | 'attendance' | 'certificates' | 'adminSession';
-interface NavState { screen: ScreenId; data?: Course; }
+type ScreenId =
+  | 'home' | 'courses' | 'courseDetail'
+  | 'learning' | 'attendance' | 'certificates'
+  | 'moduleViewer' | 'assessment' | 'performance'        // student sub-screens
+  | 'adminSession' | 'adminStudents' | 'adminRewards';   // admin screens
+interface NavState { screen: ScreenId; data?: Course | CourseModule; }
 
-const navigate = (screen: string, data?: unknown) =>
-  setNav({ screen: screen as ScreenId, data: data as Course | undefined });
-
-// Active tab: courseDetail highlights 'courses' tab
-const activeTab = nav.screen === 'courseDetail' ? 'courses' : nav.screen;
+// Map sub-screens back to their parent tab so the bottom nav stays highlighted correctly
+const screenToTab: Record<string, string> = {
+  moduleViewer: 'learning',
+  assessment:   'learning',
+  courseDetail: 'courses',
+  performance:  'home',
+};
+const activeTab = screenToTab[nav.screen] ?? nav.screen;
 ```
 
-**Auth routing (before main nav renders):**
+**Auth routing — `recoveryMode` is checked BEFORE splash:**
 ```typescript
-if (splash)   return <SplashScreen onDone={...}/>;
-if (loading)  return <FullscreenSpinner/>;         // checking Supabase session
-if (!user)    return authScreen === 'register'
-                ? <RegisterScreen onShowLogin={...}/>
-                : <LoginScreen onShowRegister={...}/>;
+if (recoveryMode) return <ResetPasswordScreen/>;          // recovery URL detected synchronously
+if (splash)       return <SplashScreen onDone={...}/>;
+if (loading)      return <FullscreenSpinner/>;
+if (!user)        return authScreen === 'register'
+                    ? <RegisterScreen onShowLogin={...}/>
+                    : <LoginScreen onShowRegister={...}/>;
 // user is logged in → render main app with BottomNav
 ```
 
-**All screens receive `onNavigate`:**
+> ⚠️ The `recoveryMode` check MUST come before splash. Without this, the 2-second splash blocks the async `PASSWORD_RECOVERY` event and password reset breaks. `AuthContext.tsx` uses `useState(detectRecoveryUrl)` to detect the URL synchronously at module load.
+
+**Role-aware BottomNav** (May 2026):
 ```typescript
-case 'learning':      return <LearningScreen onNavigate={navigate}/>;
-case 'attendance':    return <AttendanceScreen onNavigate={navigate}/>;
-case 'certificates':  return <CertificateScreen onNavigate={navigate}/>;
-case 'adminSession':  return <AdminSessionScreen onBack={() => navigate('home')}/>;
+<BottomNav current={activeTab} onChange={navigate} role={user.role}/>
+```
+- `role === 'admin'`: Home / Courses / 👤 Students / 📷 Sessions / ⭐ Rewards
+- `role === 'trainee'` (or any non-admin): Home / Courses / Learning / Attendance / Certs
+
+**Screen prop signatures:**
+```typescript
+case 'learning':       return <LearningScreen onNavigate={navigate}/>;
+case 'moduleViewer':   return <ModuleViewerScreen moduleData={...} onBack={...} onStartAssessment={(m) => navigate('assessment', m)}/>;
+case 'assessment':     return <AssessmentScreen moduleData={...} onBack={...} onRetake={...}/>;
+case 'performance':    return <PerformanceScreen onNavigate={navigate}/>;
+case 'attendance':     return <AttendanceScreen onNavigate={navigate}/>;
+case 'certificates':   return <CertificateScreen onNavigate={navigate}/>;
+case 'adminSession':   return <AdminSessionScreen  onBack={() => navigate('home')}/>;
+case 'adminStudents':  return <AdminStudentsScreen onBack={() => navigate('home')}/>;
+case 'adminRewards':   return <AdminRewardsScreen  onBack={() => navigate('home')}/>;
 ```
 
-**AdminSessionScreen** has no `onNavigate` — it only has `onBack` (always returns to home).
-`adminSession` does NOT appear in the BottomNav — it is reached only via the admin quick actions card.
+**Admin-only screens** receive only `onBack` (always returns to home), no `onNavigate`. They are reached from the AdminHome quick actions card OR from the role-aware bottom nav.
 
 ---
 
@@ -1324,6 +1425,16 @@ git push                  # auto-deploys to Vercel
 | Logo/course image showed white rectangular box | JPEG has white bg; `mix-blend-mode:multiply` inconsistent on mobile browsers (Comet etc.) | Fixed: scripts now remove white pixels via alpha-channel threshold (R,G,B >= 240 → transparent). No CSS `mix-blend-mode` needed |
 | Course thumbnail badges chopped by logo image | Logo image rendered above badges (z-index not set) | Fixed: badges have `zIndex:3` + `whiteSpace:'nowrap'`; text shortened to "CERT" and "INTER" |
 | CEWM logo not showing (from Supabase) | `courses` table has no `logo_url` column yet | Fixed: `COURSE_LOGO_MAP` in `CoursesScreen.tsx` provides frontend fallback keyed by course `id` |
+| "Could not initiate payment" error on Razorpay | Browser preflight blocked because Edge Function didn't allow `x-client-info` + `apikey` headers (sent automatically by `supabase.functions.invoke`) | Fixed: `create-razorpay-order` now returns full `Access-Control-Allow-Headers` on every response (OPTIONS, 200, 400, 500) |
+| Reset password link opened localhost | Supabase Site URL set to `http://localhost:3000` | Fixed: changed Supabase → Auth → URL Configuration → Site URL to `https://training-app-tawny.vercel.app` |
+| Reset link showed login screen instead of reset form | Async `PASSWORD_RECOVERY` event missed because of 2s splash | Fixed: `useState(detectRecoveryUrl)` for synchronous URL detection + `if (recoveryMode) return <ResetPasswordScreen/>` BEFORE splash check in App.tsx |
+| All modules locked even after payment | Default status was `'locked'` when no `user_progress` row exists | Fixed: modules with content (`slide_base_url` ‖ `video_url` ‖ `pdf_url`) default to `'in-progress'` |
+| Assessment scores lost after returning to LearningScreen | LearningScreen didn't fetch `assessment_attempts` | Fixed: 4th parallel fetch + inline score badge + retake button + "Last Assessment Score" panel in expanded module card |
+| SQL error: `invalid input value for enum module_type: 'slideshow'` | `modules.type` is a PG enum | Fixed with **standalone** `ALTER TYPE module_type ADD VALUE IF NOT EXISTS 'slideshow'` (cannot run inside DO block) |
+| SQL error: `null value in column "correct_id"` | Pre-existing `questions` table has NOT NULL `correct_id` | Fixed: INSERT both `correct_index` AND `correct_id` (same value) |
+| SQL error: `options is jsonb but expression is text[]` | `questions.options` is jsonb | Fixed: write as `'["A","B"]'::jsonb` cast, not `ARRAY['A','B']` |
+| Admin sees student-only screens via bottom nav | BottomNav was role-agnostic | Fixed (May 2026): `BottomNav role={user.role}` switches tabs between admin set (Home/Courses/Students/Sessions/Rewards) and student set |
+| AdminStudentsScreen / AdminRewardsScreen / Issue Cert button silently empty | Default RLS only allows users to see their own rows | Fixed: 5 admin RLS policies (see Section 5 SQL) — read all registrations, update registrations, read all assessment_attempts, read+insert certificates |
 
 ---
 
@@ -1369,27 +1480,33 @@ Requirements gathered from: Requirements.docx + WhatsApp conversations with Dr. 
 - PWA install banner (Android native prompt + Android manual instructions + iOS Share instructions)
 - 15 real AIWMR courses with INR + USD dual pricing
 - Student self-registration with email verification
+- Forgot password + reset password flow (May 2026)
 - Admin dashboard with real stats
 - Course browsing without enrollment required
 - Enrollment gating (Learning/Attendance/Certs locked until paid)
 - QR-based attendance — full end-to-end: admin generates session QR, student scans camera OR types code, validated against DB, real attendance written
-- 28-day attendance calendar grid
+- Monthly attendance calendar grid
 - Certificate viewer with print-to-PDF download
-- Module listing with progress status
+- Module listing with progress status + latest assessment score badges
 - **Razorpay payment** ✅ — Edge Function deployed, real orders + registrations, `access_granted: true` on payment success
+- **Assessment / quiz system** ✅ (May 2026) — slideshow viewer + 25-question MCQs + grading per Section 24 rules + reward tracking
+- **Student performance dashboard** ✅ (May 2026) — overall score ring + per-module scores + topic mastery bars + cert eligibility
+- **Admin Panel partial** ✅ — student list with access toggle + cert issuance + rewards screen + session QR manager (still pending: course/module CRUD, batch management)
+- **Role-aware navigation** ✅ — admins see admin tabs, students see student tabs
 - AIWMR brand logo on login screen + app icons (all generated from client JPEG via sharp)
 - CEWM course logo in course thumbnail + detail page (transparent PNG, no white box)
 
 ### Requested but Pending 🔧
-- QR scanner ✅ implemented — `react-qr-reader` installed, camera scan + manual code entry both working
-- Module video/PDF content viewer
-- Admin panel (student management, QR generation, certificate issuance, course CRUD)
-- Assessment/quiz system per module (grading rules confirmed — see Section 24)
-- Student individual performance dashboard per participant (confirmed requirement)
-- Notifications for upcoming live sessions
-- Proper PDF certificate generation (`@react-pdf/renderer`)
+- Module video/PDF content viewer (slideshow done; video/PDF wait for content)
+- Course + module CRUD UI in admin panel
+- Certificate auto-issuance (manual issuance UI exists; auto-trigger when 100% complete still pending)
+- Proper PDF certificate generation (`@react-pdf/renderer`) — currently HTML print fallback
+- Notifications for upcoming live sessions (table exists, no UI)
 - International payment (USD — for Oman/overseas students)
 - Offline video download for field use
+
+### Not Feasible / Clarified
+- Full video DRM (L1 Widevine) — requires native app + certified hardware; L3 (what PWA provides) is industry standard
 
 ### Not Feasible / Clarified
 - Full video DRM (L1 Widevine) — requires native app + certified hardware; L3 (what PWA provides) is industry standard
