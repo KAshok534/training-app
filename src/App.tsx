@@ -13,6 +13,7 @@ import AttendanceScreen    from './screens/AttendanceScreen';
 import CertificateScreen   from './screens/CertificateScreen';
 import AdminSessionScreen   from './screens/AdminSessionScreen';
 import AdminStudentsScreen  from './screens/AdminStudentsScreen';
+import AdminRewardsScreen   from './screens/AdminRewardsScreen';
 import PerformanceScreen    from './screens/PerformanceScreen';
 import ResetPasswordScreen  from './screens/ResetPasswordScreen';
 import BottomNav            from './components/BottomNav';
@@ -20,7 +21,7 @@ import InstallBanner        from './components/InstallBanner';
 import DemoBanner           from './components/DemoBanner';
 import type { Course, CourseModule } from './types';
 
-type ScreenId = 'home'|'courses'|'courseDetail'|'learning'|'attendance'|'certificates'|'adminSession'|'adminStudents'|'moduleViewer'|'assessment'|'performance';
+type ScreenId = 'home'|'courses'|'courseDetail'|'learning'|'attendance'|'certificates'|'adminSession'|'adminStudents'|'adminRewards'|'moduleViewer'|'assessment'|'performance';
 interface NavState { screen: ScreenId; data?: Course | CourseModule; }
 
 const InnerApp: React.FC = () => {
@@ -52,9 +53,14 @@ const InnerApp: React.FC = () => {
     </>
   );
 
-  const activeTab = (nav.screen === 'moduleViewer' || nav.screen === 'assessment')
-    ? 'learning'
-    : nav.screen === 'courseDetail' ? 'courses' : nav.screen;
+  // Map sub-screens back to their parent tab so the bottom nav stays highlighted correctly
+  const screenToTab: Record<string, string> = {
+    moduleViewer: 'learning',
+    assessment:   'learning',
+    courseDetail: 'courses',
+    performance:  'home',
+  };
+  const activeTab = screenToTab[nav.screen] ?? nav.screen;
 
   const renderScreen = () => {
     switch (nav.screen) {
@@ -88,6 +94,8 @@ const InnerApp: React.FC = () => {
         return <AdminSessionScreen onBack={() => navigate('home')}/>;
       case 'adminStudents':
         return <AdminStudentsScreen onBack={() => navigate('home')}/>;
+      case 'adminRewards':
+        return <AdminRewardsScreen onBack={() => navigate('home')}/>;
       case 'performance':
         return <PerformanceScreen onNavigate={navigate}/>;
       default:
@@ -100,7 +108,7 @@ const InnerApp: React.FC = () => {
       <InstallBanner/>
       <DemoBanner isDemo={isDemo}/>
       {renderScreen()}
-      <BottomNav current={activeTab} onChange={navigate}/>
+      <BottomNav current={activeTab} onChange={navigate} role={user.role}/>
     </>
   );
 };

@@ -17,6 +17,7 @@ interface StudentReg {
   phone:         string;
   courseTitle:   string;
   courseIcon:    string;
+  certId:        string | null;   // null if no cert issued yet
 }
 
 type FilterTab = 'all' | 'pending' | 'granted';
@@ -26,17 +27,26 @@ const AdminStudentsScreen: React.FC<Props> = ({ onBack }) => {
   const [loading, setLoading]   = useState(true);
   const [filter, setFilter]     = useState<FilterTab>('all');
   const [toggling, setToggling] = useState<string | null>(null);
+  const [issuing, setIssuing]   = useState<string | null>(null);
   const [search, setSearch]     = useState('');
 
   const loadStudents = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('registrations')
-      .select('id, registration_id, payment_status, access_granted, created_at, payment_id, profiles(name, email, phone), courses(title, icon)')
-      .order('created_at', { ascending: false });
+    const [regsRes, certsRes] = await Promise.all([
+      supabase.from('registrations')
+        .select('id, registration_id, payment_status, access_granted, created_at, payment_id, profiles(name, email, phone), courses(title, icon)')
+        .order('created_at', { ascending: false }),
+      supabase.from('certificates')
+        .select('registration_id, cert_id'),
+    ]);
+
+    // Build lookup: registration_id → cert_id
+    const certMap: Record<string, string> = {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (certsRes.data ?? []).forEach((c: any) => { certMap[c.registration_id] = c.cert_id; });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setStudents((data ?? []).map((r: any) => ({
+    setStudents((regsRes.data ?? []).map((r: any) => ({
       id:            r.id,
       regCode:       r.registration_id ?? '—',
       paymentStatus: r.payment_status,
@@ -48,6 +58,7 @@ const AdminStudentsScreen: React.FC<Props> = ({ onBack }) => {
       phone:         r.profiles?.phone ?? '—',
       courseTitle:   r.courses?.title  ?? '—',
       courseIcon:    r.courses?.icon   ?? '📚',
+      certId:        certMap[r.id] ?? null,
     })));
     setLoading(false);
   }, []);
@@ -65,6 +76,23 @@ const AdminStudentsScreen: React.FC<Props> = ({ onBack }) => {
       setStudents(prev => prev.map(r => r.id === s.id ? { ...r, accessGranted: next } : r));
     }
     setToggling(null);
+  };
+
+  const issueCertificate = async (s: StudentReg) => {
+    if (!confirm(`Issue certificate to ${s.name} for ${s.courseTitle}?\n\nThis cannot be undone from the app.`)) return;
+    setIssuing(s.id);
+    const { data, error } = await supabase
+      .from('certificates')
+      .insert({ registration_id: s.id })
+      .select('cert_id')
+      .single();
+    if (!error && data) {
+      setStudents(prev => prev.map(r => r.id === s.id ? { ...r, certId: data.cert_id } : r));
+      alert(`✅ Certificate issued: ${data.cert_id}`);
+    } else {
+      alert(`Failed to issue certificate: ${error?.message ?? 'unknown error'}`);
+    }
+    setIssuing(null);
   };
 
   const filtered = students.filter(s => {
@@ -199,6 +227,36 @@ const AdminStudentsScreen: React.FC<Props> = ({ onBack }) => {
                 {toggling === s.id ? '…' : s.accessGranted ? 'Revoke' : 'Grant Access'}
               </button>
             </div>
+
+            {/* Certificate row — only when access granted */}
+            {s.accessGranted && (
+              <div style={{ marginTop:10, paddingTop:10, borderTop:'1px solid var(--sand)', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
+                <div style={{ minWidth:0, flex:1 }}>
+                  <div style={{ fontSize:12, fontWeight:700, color: s.certId ? 'var(--gold)' : '#999' }}>
+                    {s.certId ? '🏆 Certificate Issued' : '📜 No Certificate Yet'}
+                  </div>
+                  <div style={{ fontSize:11, color:'#bbb', marginTop:2, fontFamily: s.certId ? 'monospace' : 'inherit' }}>
+                    {s.certId ?? 'Issue when course is completed'}
+                  </div>
+                </div>
+                {!s.certId && (
+                  <button
+                    onClick={() => issueCertificate(s)}
+                    disabled={issuing === s.id}
+                    style={{
+                      flexShrink: 0,
+                      padding:'8px 16px', borderRadius:10, border:'none',
+                      cursor: issuing === s.id ? 'not-allowed' : 'pointer',
+                      fontSize:12, fontWeight:700, fontFamily:"'DM Sans', sans-serif",
+                      opacity: issuing === s.id ? 0.6 : 1,
+                      background:'var(--gold)', color:'white',
+                      transition:'all 0.2s',
+                    }}>
+                    {issuing === s.id ? '…' : 'Issue Cert'}
+                  </button>
+                )}
+              </div>
+            )}
           </Card>
         ))}
       </div>
