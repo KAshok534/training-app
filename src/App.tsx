@@ -13,13 +13,14 @@ import AttendanceScreen    from './screens/AttendanceScreen';
 import CertificateScreen   from './screens/CertificateScreen';
 import AdminSessionScreen   from './screens/AdminSessionScreen';
 import AdminStudentsScreen  from './screens/AdminStudentsScreen';
+import PerformanceScreen    from './screens/PerformanceScreen';
 import ResetPasswordScreen  from './screens/ResetPasswordScreen';
 import BottomNav            from './components/BottomNav';
 import InstallBanner        from './components/InstallBanner';
 import DemoBanner           from './components/DemoBanner';
 import type { Course, CourseModule } from './types';
 
-type ScreenId = 'home'|'courses'|'courseDetail'|'learning'|'attendance'|'certificates'|'adminSession'|'adminStudents'|'moduleViewer'|'assessment';
+type ScreenId = 'home'|'courses'|'courseDetail'|'learning'|'attendance'|'certificates'|'adminSession'|'adminStudents'|'moduleViewer'|'assessment'|'performance';
 interface NavState { screen: ScreenId; data?: Course | CourseModule; }
 
 const InnerApp: React.FC = () => {
@@ -87,6 +88,8 @@ const InnerApp: React.FC = () => {
         return <AdminSessionScreen onBack={() => navigate('home')}/>;
       case 'adminStudents':
         return <AdminStudentsScreen onBack={() => navigate('home')}/>;
+      case 'performance':
+        return <PerformanceScreen onNavigate={navigate}/>;
       default:
         return <HomeScreen onNavigate={navigate}/>;
     }

@@ -278,8 +278,19 @@ const EnrolledHome: React.FC<{ name:string; enrollment: EnrollmentData; courses:
         </Card>
       </div>
 
+      {/* Performance shortcut */}
+      <Card onClick={() => onNavigate('performance')}
+        style={{ margin:'12px 16px 0', padding:'14px 16px', display:'flex', alignItems:'center', gap:12, cursor:'pointer', animation:'fadeUp 0.4s ease 0.04s both', border:'1px solid var(--sand)' }}>
+        <div style={{ fontSize:28 }}>📊</div>
+        <div style={{ flex:1, minWidth:0 }}>
+          <div style={{ fontWeight:700, fontSize:14, color:'var(--charcoal)' }}>My Performance</div>
+          <div style={{ fontSize:11, color:'#999', marginTop:1 }}>Scores · topic mastery · attendance · rewards</div>
+        </div>
+        <Icon name="chevron" size={16} color="#bbb"/>
+      </Card>
+
       {/* Stats */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, margin:'16px 16px 0', animation:'fadeUp 0.4s ease 0.06s both' }}>
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, margin:'12px 16px 0', animation:'fadeUp 0.4s ease 0.06s both' }}>
         <Card style={{ padding:16, textAlign:'center' }}>
           <div style={{ fontSize:28, marginBottom:6 }}>📅</div>
           <div style={{ fontWeight:700, fontSize:22, color:'var(--pine)' }}>{attendanceCount}</div>
