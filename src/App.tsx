@@ -19,6 +19,8 @@ import ResetPasswordScreen  from './screens/ResetPasswordScreen';
 import BottomNav            from './components/BottomNav';
 import InstallBanner        from './components/InstallBanner';
 import DemoBanner           from './components/DemoBanner';
+import OfflineBanner        from './components/OfflineBanner';
+import ErrorBoundary        from './components/ErrorBoundary';
 import type { Course, CourseModule } from './types';
 
 type ScreenId = 'home'|'courses'|'courseDetail'|'learning'|'attendance'|'certificates'|'adminSession'|'adminStudents'|'adminRewards'|'moduleViewer'|'assessment'|'performance';
@@ -114,6 +116,9 @@ const InnerApp: React.FC = () => {
 };
 
 const App: React.FC = () => (
-  <AuthProvider><InnerApp/></AuthProvider>
+  <ErrorBoundary>
+    <OfflineBanner/>
+    <AuthProvider><InnerApp/></AuthProvider>
+  </ErrorBoundary>
 );
 export default App;
