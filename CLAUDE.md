@@ -17,7 +17,7 @@
 | **Primary Markets** | India (INR pricing) + Oman / International (USD pricing) |
 | **Live URL** | https://training-app-tawny.vercel.app |
 | **Repository** | C:\Users\Ashok\source\repos\aiwmr-app-pwa\aiwmr-app |
-| **Last Updated** | May 2026 — Assessment system + Performance dashboard + Admin students/rewards/cert issuance + Forgot password |
+| **Last Updated** | May 2026 — Full editorial-botanical redesign across every customer + admin screen, AuthShell/AuthForm/ParchmentBackdrop primitives, Privacy + Terms pages, Razorpay signature verification, maskable icons, ErrorBoundary, OfflineBanner |
 
 ---
 
@@ -54,10 +54,15 @@ src/
 │   └── useEnrollment.ts        — KEY HOOK: checks if student has paid enrollment
 ├── components/
 │   ├── Icon.tsx                — Typed SVG icon system (20+ icons)
-│   ├── UI.tsx                  — Badge, ProgressBar, Btn, Card, Spinner, Divider
-│   ├── BottomNav.tsx           — 5-tab bottom navigation
-│   ├── InstallBanner.tsx       — PWA install prompt (Android native + Android manual + iOS instructions)
-│   ├── DemoBanner.tsx          — "Demo mode" notice (hides when .env is set)
+│   ├── UI.tsx                  — Legacy: Badge, ProgressBar, Btn, Card, Spinner, Divider (still used by a few old call-sites)
+│   ├── BottomNav.tsx           — 5-tab bottom navigation (role-aware: admin vs student tabs)
+│   ├── InstallBanner.tsx       — Editorial PWA install bottom-sheet (Android native + Android manual + iOS variants)
+│   ├── DemoBanner.tsx          — Editorial top banner when running without Supabase credentials
+│   ├── OfflineBanner.tsx       — Top banner watching navigator.onLine — red when offline, brief moss "back online" confirmation
+│   ├── ErrorBoundary.tsx       — App-wide React error boundary with editorial fallback UI
+│   ├── ParchmentBackdrop.tsx   — KEY PRIMITIVE: cream + grain + topographic + leaf SVG background. Levels: 'full' / 'grain-only' / 'none'
+│   ├── AuthShell.tsx           — KEY PRIMITIVE: editorial auth chrome (logo + ESTABLISHED top bar + footer mark + privacy/terms links). Wraps ParchmentBackdrop.
+│   ├── AuthForm.tsx            — KEY PRIMITIVE: exports Eyebrow, Headline, Subhead, Divider, SectionLabel, Field, PasswordField, PrimaryButton, InlineLink, ErrorBar, Sidenote, BottomCTA. Used across every editorial screen.
 │   ├── EnrollmentGate.tsx      — KEY COMPONENT: gates screens behind paid enrollment
 │   └── PreCourseInstructionsModal.tsx — One-time "Before You Begin" instructions sheet (12 rules)
 ├── screens/
@@ -103,11 +108,19 @@ vite.config.ts                  — Vite + PWA plugin config
 
 supabase/
 ├── functions/
-│   └── create-razorpay-order/
-│       └── index.ts            — Edge Function: creates Razorpay orders server-side (Key Secret stays off browser; full CORS headers)
+│   ├── create-razorpay-order/
+│   │   └── index.ts            — Edge Function: creates Razorpay orders server-side (Key Secret stays off browser; full CORS headers)
+│   └── verify-razorpay-payment/
+│       └── index.ts            — Edge Function: HMAC-SHA256 verifies signature, then uses service role key to write the registration with access_granted=true. The ONLY path to a paid registration.
 └── sql/
     ├── 01_assessment_schema.sql       — Creates/extends questions, assessment_attempts, student_topic_scores. Adds 'slideshow' enum value + slide_count/slide_base_url cols to modules
     └── 02_seed_cewm_module1_topic1.sql — Inserts module 1001 + 25 MCQ questions for CEWM Module 1 Topic 1
+
+public/
+├── privacy.html                — Standalone editorial Privacy Policy page (Indian DPDP 2023 compliant)
+├── terms.html                  — Standalone editorial Terms of Service page
+└── .well-known/
+    └── README.md               — Documents the assetlinks.json requirement for the future TWA submission
 ```
 
 ---
@@ -723,6 +736,16 @@ These 15 courses exist in BOTH Supabase AND `src/data/index.ts` (as local fallba
 - **Role-aware BottomNav** (May 2026) — admins see Home/Courses/Students/Sessions/Rewards; students see Home/Courses/Learning/Attendance/Certs. Eliminates admin landing on enrollment-gated student screens
 - **Razorpay CORS fix** (May 2026) — Edge Function `create-razorpay-order` now sends `Access-Control-Allow-Headers: authorization, x-client-info, apikey, content-type` on ALL responses (OPTIONS preflight + 200 + 400 + 500). Was blocking payments with "Could not initiate payment" error
 - **Admin RLS policies** (May 2026) — admin can read+update all registrations, read all assessment_attempts, read+insert certificates (see Section 5 SQL)
+- **Server-side Razorpay signature verification** (May 2026) — new `verify-razorpay-payment` Edge Function does HMAC-SHA256 on `order_id|payment_id` against `RAZORPAY_KEY_SECRET`, uses service role key to write `access_granted=true`. Frontend `handlePay` in CourseDetailScreen calls this instead of inserting directly. RLS tightened so users can only insert `pending` registrations (the Edge Function is the only path to `access_granted=true`).
+- **Editorial-botanical redesign** (May 2026) — full UI overhaul. **Every customer-facing AND admin screen** rewritten in a unified design system: cream parchment background with SVG paper-grain + topographic contour-map + botanical leaf accents, Fraunces variable display type paired with DM Sans, italic-period typographic motif (`Welcome / back.`), Roman-numeral list entries, sharp 2px-radius CTAs, hairline rules with ✦ ornaments, small-caps eyebrows. Shared primitives: `ParchmentBackdrop.tsx` (background levels: full/grain-only/none), `AuthShell.tsx` (auth chrome wrapper), `AuthForm.tsx` (Eyebrow, Headline, Subhead, Divider, SectionLabel, Field, PasswordField, PrimaryButton, InlineLink, ErrorBar, Sidenote, BottomCTA). Fonts loaded via Google Fonts link in `index.html` (Fraunces + DM Sans + Playfair Display).
+- **Fraunces typography** (May 2026) — distinctive variable serif with `opsz` (optical size) + `SOFT` axes used throughout for display headlines; replaces generic-feeling Playfair Display as the brand voice for the editorial moments
+- **Privacy Policy** (May 2026) — `/privacy.html` standalone editorial page covering data collection, third parties (Supabase/Razorpay/Vercel/Google Fonts), Indian DPDP 2023 compliance, named grievance officer (Dr. Sushanth Gade), 7-year payment retention. Referenced from AuthShell footer. Service worker `navigateFallbackDenylist` ensures static HTML is served (not the SPA fallback).
+- **Terms of Service** (May 2026) — `/terms.html` editorial page with 12 sections: acceptance, service description, account & eligibility, payments & refunds (7-day refund before content access), course content, IP, acceptable use, certificates & rewards (90%+ free internship policy formalized), disclaimers, termination, changes, governing law (Hyderabad jurisdiction). Same editorial style as Privacy.
+- **Maskable PWA icons** (May 2026) — `scripts/generate-maskable-icons.mjs` produces 192×192 + 512×512 maskable variants with forest-green background + AIWMR logo at 60% center (well inside 80% safe zone). Both `manifest.json` and `vite.config.ts` register them with `purpose: 'maskable'`. Android 8+ home-screen icon now adapts cleanly to any launcher shape (circle/squircle/teardrop).
+- **PWA manifest hygiene** (May 2026) — added `id`, `scope`, `lang`, `dir`, `categories`, richer `description`. `background_color` switched from forest to cream to match the actual app on launch. `screenshots: []` placeholder pending real captures.
+- **`/.well-known/` placeholder + workbox denylist** (May 2026) — documented `assetlinks.json` requirement for the future TWA Digital Asset Links verification. Workbox `navigateFallbackDenylist: [/^\/privacy/, /^\/terms/, /^\/\.well-known/]` prevents the SPA fallback from intercepting these.
+- **ErrorBoundary** (`src/components/ErrorBoundary.tsx`, May 2026) — wraps the entire app in App.tsx. Catches uncaught render errors and shows an editorial fallback (`We hit / a snag.`) with Reload App PrimaryButton + collapsible technical details. Critical for Play Store stability rating.
+- **OfflineBanner** (`src/components/OfflineBanner.tsx`, May 2026) — slim top banner that watches `navigator.onLine`. Shows red `● YOU ARE OFFLINE` when offline with pulsing dot; shows brief moss `● BACK ONLINE ✓` for 2.2s when reconnecting. Rendered globally in App.tsx outside the ErrorBoundary children.
 
 ### 🔧 PENDING (in priority order)
 
