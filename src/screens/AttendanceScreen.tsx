@@ -1,9 +1,17 @@
+/**
+ * AttendanceScreen — editorial QR attendance + monthly calendar.
+ *
+ * Two input modes (camera scan + manual 6-char code) with four result states:
+ * success / already / invalid / error. Plus the monthly calendar grid with
+ * present / missed / no-session / today / upcoming cell types.
+ */
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Scanner } from '@yudiel/react-qr-scanner';
 import { supabase } from '../lib/supabase';
-import { Card, Spinner } from '../components/UI';
 import EnrollmentGate from '../components/EnrollmentGate';
-import Icon from '../components/Icon';
+import ParchmentBackdrop from '../components/ParchmentBackdrop';
+import { DISPLAY, BODY } from '../components/AuthShell';
+import { PrimaryButton } from '../components/AuthForm';
 import { useEnrollment } from '../hooks/useEnrollment';
 
 interface Props { onNavigate: (screen: string) => void; }
@@ -24,38 +32,33 @@ const AttendanceScreen: React.FC<Props> = ({ onNavigate }) => {
   const [attendedDates, setAttendedDates]   = useState<Set<string>>(new Set());
   const [scheduledDates, setScheduledDates] = useState<Set<string>>(new Set());
   const [dataLoading, setDataLoading]       = useState(true);
-  const alreadyScanned                      = useRef(false); // prevent QR double-fire
+  const alreadyScanned                      = useRef(false);
 
   const now      = new Date();
   const todayStr = now.toISOString().split('T')[0];
 
-  // Calendar navigation
   const [calYear,  setCalYear]  = useState(now.getFullYear());
   const [calMonth, setCalMonth] = useState(now.getMonth());
 
-  // ── Fetch attendance + scheduled sessions ─────────────────────────────────
+  // ── Data fetch ────────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     if (!enrollment) return;
     const [attendRes, scheduledRes] = await Promise.all([
       supabase.from('attendance').select('session_date').eq('registration_id', enrollment.registrationId),
       supabase.from('session_qr_codes').select('session_date').eq('course_id', enrollment.courseId),
     ]);
-    if (attendRes.data)   setAttendedDates(new Set(attendRes.data.map((a: { session_date: string }) => a.session_date)));
+    if (attendRes.data)    setAttendedDates(new Set(attendRes.data.map((a: { session_date: string }) => a.session_date)));
     if (scheduledRes.data) setScheduledDates(new Set(scheduledRes.data.map((q: { session_date: string }) => q.session_date)));
     setDataLoading(false);
   }, [enrollment]);
 
-  useEffect(() => {
-    if (!enrollment) return;
-    fetchData();
-  }, [enrollment, fetchData]);
+  useEffect(() => { if (enrollment) fetchData(); }, [enrollment, fetchData]);
 
-  // ── Core: validate code + mark attendance ─────────────────────────────────
+  // ── Mark attendance ───────────────────────────────────────────────────────
   const markAttendance = useCallback(async (code: string) => {
     if (!enrollment) return;
     const trimmed = code.trim().toUpperCase();
 
-    // 1. Validate against session_qr_codes
     const { data: session, error: sessionError } = await supabase
       .from('session_qr_codes')
       .select('id, session_date, expires_at, course_id')
@@ -63,14 +66,9 @@ const AttendanceScreen: React.FC<Props> = ({ onNavigate }) => {
       .single();
 
     if (sessionError || !session) { setScanState('invalid'); return; }
-
-    // 2. Check expiry
     if (new Date(session.expires_at) <= new Date()) { setScanState('invalid'); return; }
-
-    // 3. Check if already marked today (client-side)
     if (attendedDates.has(session.session_date)) { setScanState('already'); return; }
 
-    // 4. Insert attendance
     const { error } = await supabase.from('attendance').insert({
       registration_id: enrollment.registrationId,
       session_date:    session.session_date,
@@ -87,8 +85,7 @@ const AttendanceScreen: React.FC<Props> = ({ onNavigate }) => {
     }
   }, [enrollment, attendedDates, fetchData]);
 
-  // ── Camera QR handler ─────────────────────────────────────────────────────
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // ── QR result handler ────────────────────────────────────────────────────
   const handleQrResult = useCallback((detectedCodes: { rawValue: string }[]) => {
     const result = detectedCodes?.[0];
     if (!result || alreadyScanned.current) return;
@@ -98,7 +95,6 @@ const AttendanceScreen: React.FC<Props> = ({ onNavigate }) => {
     markAttendance(text);
   }, [markAttendance]);
 
-  // Reset scanner lock when going back to idle
   useEffect(() => {
     if (scanState === 'idle') alreadyScanned.current = false;
   }, [scanState]);
@@ -128,18 +124,17 @@ const AttendanceScreen: React.FC<Props> = ({ onNavigate }) => {
     const cells: { day: number; status: CellStatus }[] = [];
 
     for (let i = 0; i < firstWeekday; i++) cells.push({ day: 0, status: 'empty' });
-
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
       const isToday = dateStr === todayStr;
       const isPast  = dateStr < todayStr;
 
       let status: CellStatus;
-      if (isToday)                                          status = 'today';
-      else if (!isPast)                                     status = 'future';
-      else if (attendedDates.has(dateStr))                  status = 'present';
-      else if (scheduledDates.has(dateStr))                 status = 'absent';
-      else                                                  status = 'no-session';
+      if (isToday)                                                  status = 'today';
+      else if (!isPast)                                             status = 'future';
+      else if (attendedDates.has(dateStr))                          status = 'present';
+      else if (scheduledDates.has(dateStr))                         status = 'absent';
+      else                                                          status = 'no-session';
 
       cells.push({ day: d, status });
     }
@@ -148,24 +143,16 @@ const AttendanceScreen: React.FC<Props> = ({ onNavigate }) => {
 
   const isCurrentMonth = calYear === now.getFullYear() && calMonth === now.getMonth();
   const monthLabel     = new Date(calYear, calMonth, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
-  const goPrev = () => { if (calMonth === 0) { setCalYear(y=>y-1); setCalMonth(11); } else setCalMonth(m=>m-1); };
-  const goNext = () => { if (isCurrentMonth) return; if (calMonth === 11) { setCalYear(y=>y+1); setCalMonth(0); } else setCalMonth(m=>m+1); };
+  const goPrev = () => { if (calMonth === 0) { setCalYear(y => y - 1); setCalMonth(11); } else setCalMonth(m => m - 1); };
+  const goNext = () => { if (isCurrentMonth) return; if (calMonth === 11) { setCalYear(y => y + 1); setCalMonth(0); } else setCalMonth(m => m + 1); };
 
-  const cellBg: Record<CellStatus, string> = {
-    present:      'var(--leaf)',
-    absent:       'rgba(192,57,43,0.2)',
-    'no-session': 'var(--mist)',
-    today:        'var(--amber)',
-    future:       'var(--sand)',
-    empty:        'transparent',
-  };
-  const cellFg: Record<CellStatus, string> = {
-    present:      'white',
-    absent:       'var(--red)',
-    'no-session': '#ccc',
-    today:        'white',
-    future:       '#bbb',
-    empty:        'transparent',
+  const cellStyle: Record<CellStatus, React.CSSProperties> = {
+    present:      { background: 'var(--leaf)',                color: 'white' },
+    absent:       { background: 'rgba(192,57,43,0.15)',       color: 'var(--red)',   border: '1px solid rgba(192,57,43,0.3)' },
+    'no-session': { background: 'transparent',                color: 'rgba(26,58,42,0.3)' },
+    today:        { background: 'var(--amber)',               color: 'white', border: '2px solid var(--earth)' },
+    future:       { background: 'transparent',                color: 'rgba(26,58,42,0.55)' },
+    empty:        { background: 'transparent',                color: 'transparent' },
   };
 
   // ── Stats ─────────────────────────────────────────────────────────────────
@@ -180,212 +167,517 @@ const AttendanceScreen: React.FC<Props> = ({ onNavigate }) => {
       enrolled={!!enrollment}
       icon="📅"
       title="Attendance"
-      message="You need to enroll in a course and complete payment to mark and view your attendance."
+      message="Enroll in a course and complete payment to mark and view your attendance."
       onBrowse={() => onNavigate('courses')}
     >
-      <div className="screen">
-        {/* Header */}
-        <div style={{ background:'var(--forest)', padding:'20px 20px 24px', position:'sticky', top:0, zIndex:10 }}>
-          <div style={{ fontFamily:"'Playfair Display', serif", color:'white', fontSize:24, fontWeight:900 }}>Attendance</div>
-          <div style={{ color:'var(--sage)', fontSize:13, marginTop:2 }}>QR Check-in · {enrollment?.courseTitle}</div>
-        </div>
+      <ParchmentBackdrop decorations="full">
+        <div className="screen" style={{ position: 'absolute', inset: 0 }}>
+          <div style={{
+            maxWidth: 540, margin: '0 auto',
+            padding: 'calc(28px + var(--safe-top)) 28px 40px',
+          }}>
 
-        <div style={{ padding:'16px' }}>
+            {/* ── RESULT STATES ── */}
+            {scanState !== 'idle' && (
+              <ResultPanel state={scanState} now={now} stats={{ attended, pct, missed, pastScheduled }} onReset={resetToIdle}/>
+            )}
 
-          {/* ── Result overlays ── */}
-          {scanState === 'success' && (
-            <div style={{ textAlign:'center', animation:'fadeUp 0.4s ease', marginBottom:16 }}>
-              <div style={{ fontSize:72, marginBottom:12 }}>✅</div>
-              <div style={{ fontFamily:"'Playfair Display', serif", fontSize:26, fontWeight:900, color:'var(--forest)', marginBottom:4 }}>Marked!</div>
-              <div style={{ color:'#888', fontSize:13, marginBottom:20 }}>
-                {now.toLocaleDateString('en-IN', { day:'numeric', month:'long', year:'numeric' })} · {now.toLocaleTimeString('en-IN', { hour:'2-digit', minute:'2-digit' })}
-              </div>
-              <Card style={{ padding:18, marginBottom:20 }}>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-                  {[['Sessions', String(attended)], ['Rate', pct !== null ? `${pct}%` : '—'], ['Missed', String(missed)], ['Status', pct !== null && pct >= 75 ? '✅ Good' : '⚠️ Low']].map(([l, v]) => (
-                    <div key={l} style={{ textAlign:'center', padding:12, background:'var(--mist)', borderRadius:12 }}>
-                      <div style={{ fontWeight:700, fontSize:15, color:'var(--forest)' }}>{v}</div>
-                      <div style={{ fontSize:11, color:'#999', marginTop:3 }}>{l}</div>
-                    </div>
-                  ))}
+            {scanState === 'idle' && (
+              <>
+                {/* ── Editorial header ── */}
+                <div style={{
+                  fontFamily: BODY,
+                  fontSize: 10, fontWeight: 600,
+                  color: 'var(--moss)',
+                  letterSpacing: '0.34em',
+                  textTransform: 'uppercase',
+                  marginBottom: 14,
+                  animation: 'fadeUpSoft 0.5s ease 0s both',
+                }}>
+                  — Attendance
                 </div>
-              </Card>
-              <button onClick={resetToIdle} style={{ padding:'12px 32px', background:'var(--forest)', color:'white', border:'none', borderRadius:12, fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:"'DM Sans', sans-serif" }}>Done</button>
-            </div>
-          )}
 
-          {scanState === 'already' && (
-            <div style={{ textAlign:'center', animation:'fadeUp 0.4s ease', marginBottom:16 }}>
-              <div style={{ fontSize:72, marginBottom:12 }}>📋</div>
-              <div style={{ fontFamily:"'Playfair Display', serif", fontSize:22, fontWeight:900, color:'var(--forest)', marginBottom:8 }}>Already Marked</div>
-              <div style={{ color:'#888', fontSize:14, marginBottom:24, maxWidth:260, margin:'0 auto 24px' }}>Your attendance for this session has already been recorded.</div>
-              <button onClick={resetToIdle} style={{ padding:'12px 32px', background:'var(--forest)', color:'white', border:'none', borderRadius:12, fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:"'DM Sans', sans-serif" }}>OK</button>
-            </div>
-          )}
+                <h1 style={{
+                  fontFamily: DISPLAY,
+                  fontSize: 'clamp(34px, 9vw, 50px)',
+                  color: 'var(--forest)',
+                  fontWeight: 400,
+                  lineHeight: 0.96,
+                  letterSpacing: '-0.022em',
+                  margin: 0, marginBottom: 14,
+                  fontVariationSettings: '"opsz" 144, "SOFT" 80',
+                  animation: 'fadeUpSoft 0.6s ease 0.1s both',
+                }}>
+                  Mark your<br/>
+                  <em style={{ fontStyle: 'italic', color: 'var(--moss)', fontWeight: 400 }}>presence.</em>
+                </h1>
 
-          {scanState === 'invalid' && (
-            <div style={{ textAlign:'center', animation:'fadeUp 0.4s ease', marginBottom:16 }}>
-              <div style={{ fontSize:72, marginBottom:12 }}>⛔</div>
-              <div style={{ fontFamily:"'Playfair Display', serif", fontSize:22, fontWeight:900, color:'var(--red)', marginBottom:8 }}>Invalid Code</div>
-              <div style={{ color:'#888', fontSize:14, marginBottom:24 }}>This code is invalid or has expired. Ask your trainer for the current session code.</div>
-              <button onClick={resetToIdle} style={{ padding:'12px 32px', background:'var(--forest)', color:'white', border:'none', borderRadius:12, fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:"'DM Sans', sans-serif" }}>Try Again</button>
-            </div>
-          )}
+                <p style={{
+                  fontFamily: DISPLAY,
+                  fontStyle: 'italic',
+                  fontSize: 15,
+                  color: 'var(--charcoal)',
+                  opacity: 0.65,
+                  margin: 0, marginBottom: 32,
+                  animation: 'fadeUpSoft 0.5s ease 0.18s both',
+                }}>
+                  Scan the session QR or enter the 6-character code.
+                </p>
 
-          {scanState === 'error' && (
-            <div style={{ textAlign:'center', animation:'fadeUp 0.4s ease', marginBottom:16 }}>
-              <div style={{ fontSize:72, marginBottom:12 }}>❌</div>
-              <div style={{ fontFamily:"'Playfair Display', serif", fontSize:22, fontWeight:900, color:'var(--red)', marginBottom:8 }}>Something went wrong</div>
-              <div style={{ color:'#888', fontSize:14, marginBottom:24 }}>Please try again or contact support.</div>
-              <button onClick={resetToIdle} style={{ padding:'12px 32px', background:'var(--forest)', color:'white', border:'none', borderRadius:12, fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:"'DM Sans', sans-serif" }}>Try Again</button>
-            </div>
-          )}
+                {/* ── Mode tabs (editorial) ── */}
+                <div style={{
+                  display: 'flex',
+                  gap: 4,
+                  marginBottom: 24,
+                  borderBottom: '1px solid rgba(26,58,42,0.12)',
+                  animation: 'fadeUpSoft 0.5s ease 0.25s both',
+                }}>
+                  {(['camera', 'code'] as InputMode[]).map(mode => {
+                    const active = inputMode === mode;
+                    return (
+                      <button key={mode}
+                        onClick={() => setInputMode(mode)}
+                        style={{
+                          padding: '12px 16px',
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontFamily: active ? DISPLAY : BODY,
+                          fontSize: active ? 15 : 11,
+                          fontStyle: active ? 'italic' : 'normal',
+                          fontWeight: active ? 500 : 600,
+                          color: active ? 'var(--forest)' : 'rgba(26,58,42,0.45)',
+                          letterSpacing: active ? '0.01em' : '0.22em',
+                          textTransform: active ? 'none' : 'uppercase',
+                          borderBottom: active ? '2px solid var(--forest)' : '2px solid transparent',
+                          marginBottom: -1,
+                          transition: 'all 0.2s ease',
+                        }}>
+                        {mode === 'camera' ? (active ? 'scan qr' : 'Scan QR') : (active ? 'enter code' : 'Enter Code')}
+                      </button>
+                    );
+                  })}
+                </div>
 
-          {/* ── Main scanner UI ── */}
-          {scanState === 'idle' && (
-            <>
-              {/* Mode tabs */}
-              <div style={{ display:'flex', background:'var(--mist)', borderRadius:12, padding:4, marginBottom:16 }}>
-                {(['camera', 'code'] as InputMode[]).map(mode => (
-                  <button key={mode} onClick={() => setInputMode(mode)}
-                    style={{ flex:1, padding:'10px', border:'none', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:600, fontFamily:"'DM Sans', sans-serif", background: inputMode === mode ? 'white' : 'transparent', color: inputMode === mode ? 'var(--forest)' : '#aaa', boxShadow: inputMode === mode ? '0 2px 8px rgba(0,0,0,0.08)' : 'none', transition:'all 0.2s' }}>
-                    {mode === 'camera' ? '📷 Scan QR' : '✏️ Enter Code'}
-                  </button>
-                ))}
-              </div>
-
-              {/* ── Camera mode ── */}
-              {inputMode === 'camera' && (
-                <Card style={{ padding:0, overflow:'hidden', marginBottom:16 }}>
-                  <div style={{ position:'relative' }}>
-                    {/* Camera viewfinder */}
-                    <div style={{ position:'relative', background:'#111', minHeight:260 }}>
-                      <Scanner
-                        onScan={handleQrResult}
-                        constraints={{ facingMode: 'environment' }}
-                        styles={{ container: { width:'100%' }, video: { width:'100%', borderRadius:0 } }}
-                        sound={false}
-                      />
-                      {/* Corner overlay */}
-                      <div style={{ position:'absolute', inset:0, pointerEvents:'none' }}>
-                        {([
-                          { top:20, left:20,   borderRadius:'10px 0 0 0', borderRight:'none', borderBottom:'none' },
-                          { top:20, right:20,  borderRadius:'0 10px 0 0', borderLeft:'none',  borderBottom:'none' },
-                          { bottom:20, left:20,  borderRadius:'0 0 0 10px', borderRight:'none', borderTop:'none' },
-                          { bottom:20, right:20, borderRadius:'0 0 10px 0', borderLeft:'none',  borderTop:'none' },
-                        ] as React.CSSProperties[]).map((st, i) => (
-                          <div key={i} style={{ position:'absolute', width:30, height:30, border:'3px solid var(--leaf)', ...st }}/>
-                        ))}
-                      </div>
+                {/* ── Camera mode ── */}
+                {inputMode === 'camera' && (
+                  <div style={{
+                    position: 'relative',
+                    marginBottom: 32,
+                    animation: 'fadeUpSoft 0.5s ease 0.3s both',
+                    background: '#0d1d15',
+                    border: '1px solid rgba(26,58,42,0.18)',
+                  }}>
+                    <Scanner
+                      onScan={handleQrResult}
+                      constraints={{ facingMode: 'environment' }}
+                      styles={{
+                        container: { width: '100%' },
+                        video: { width: '100%', display: 'block' },
+                      }}
+                      sound={false}
+                    />
+                    {/* Corner brackets */}
+                    <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+                      {([
+                        { top: 16, left: 16,   borderRight: 'none', borderBottom: 'none' },
+                        { top: 16, right: 16,  borderLeft: 'none',  borderBottom: 'none' },
+                        { bottom: 16, left: 16,  borderRight: 'none', borderTop: 'none' },
+                        { bottom: 16, right: 16, borderLeft: 'none',  borderTop: 'none' },
+                      ] as React.CSSProperties[]).map((st, i) => (
+                        <div key={i} style={{
+                          position: 'absolute',
+                          width: 28, height: 28,
+                          border: '2px solid var(--leaf)',
+                          ...st,
+                        }}/>
+                      ))}
                     </div>
-                    <div style={{ padding:'12px 16px', textAlign:'center', fontSize:13, color:'#888' }}>
+                    <div style={{
+                      padding: '14px 18px',
+                      fontFamily: DISPLAY,
+                      fontStyle: 'italic',
+                      fontSize: 13,
+                      color: 'rgba(255,255,255,0.7)',
+                      textAlign: 'center',
+                      borderTop: '1px solid rgba(255,255,255,0.08)',
+                    }}>
                       Point your camera at the session QR code
                     </div>
                   </div>
-                </Card>
-              )}
+                )}
 
-              {/* ── Manual code mode ── */}
-              {inputMode === 'code' && (
-                <Card style={{ padding:24, marginBottom:16, textAlign:'center' }}>
-                  <div style={{ fontSize:40, marginBottom:12 }}>🔐</div>
-                  <div style={{ fontSize:14, color:'#555', marginBottom:20, lineHeight:1.6 }}>
-                    Ask your trainer for the <strong>6-character session code</strong> displayed during the live class
+                {/* ── Manual code mode ── */}
+                {inputMode === 'code' && (
+                  <div style={{
+                    marginBottom: 32,
+                    animation: 'fadeUpSoft 0.5s ease 0.3s both',
+                  }}>
+                    <div style={{
+                      fontFamily: BODY,
+                      fontSize: 10, fontWeight: 600,
+                      color: 'var(--moss)',
+                      letterSpacing: '0.22em',
+                      textTransform: 'uppercase',
+                      marginBottom: 10,
+                    }}>
+                      Six-character session code
+                    </div>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      placeholder="K7NP3A"
+                      value={manualCode}
+                      onChange={e => { setManualCode(e.target.value.toUpperCase()); setCodeError(''); }}
+                      style={{
+                        width: '100%',
+                        padding: '18px 0',
+                        textAlign: 'center',
+                        fontSize: 32,
+                        fontFamily: 'ui-monospace, "JetBrains Mono", monospace',
+                        fontWeight: 500,
+                        letterSpacing: '0.4em',
+                        background: 'transparent',
+                        border: 'none',
+                        borderBottom: codeError ? '1.5px solid var(--red)' : '1.5px solid rgba(26,58,42,0.25)',
+                        outline: 'none',
+                        color: 'var(--forest)',
+                        boxSizing: 'border-box',
+                        transition: 'border-color 0.25s ease',
+                      }}
+                    />
+                    {codeError && (
+                      <div style={{
+                        fontFamily: DISPLAY,
+                        fontStyle: 'italic',
+                        fontSize: 13,
+                        color: 'var(--red)',
+                        marginTop: 8,
+                      }}>
+                        {codeError}
+                      </div>
+                    )}
+                    <div style={{ marginTop: 18 }}>
+                      <PrimaryButton
+                        onClick={handleCodeSubmit}
+                        loading={submitting}
+                        label="Mark Attendance"
+                        arrow="✓"
+                      />
+                    </div>
                   </div>
-                  <input
-                    type="text"
-                    maxLength={6}
-                    placeholder="A3K9P2"
-                    value={manualCode}
-                    onChange={e => { setManualCode(e.target.value.toUpperCase()); setCodeError(''); }}
-                    style={{ width:'100%', padding:'16px', textAlign:'center', fontSize:28, fontFamily:'monospace', fontWeight:900, letterSpacing:12, borderRadius:14, border:`2px solid ${codeError ? 'var(--red)' : 'var(--sand)'}`, background:'var(--white)', outline:'none', color:'var(--forest)', boxSizing:'border-box' }}
-                  />
-                  {codeError && <div style={{ color:'var(--red)', fontSize:13, marginTop:8 }}>{codeError}</div>}
-                  <button
-                    onClick={handleCodeSubmit}
-                    disabled={submitting || manualCode.trim().length < 6}
-                    style={{ width:'100%', marginTop:16, padding:'14px', background: manualCode.trim().length < 6 ? 'var(--sage)' : 'var(--forest)', color:'white', border:'none', borderRadius:14, fontSize:15, fontWeight:700, cursor: manualCode.trim().length < 6 ? 'not-allowed' : 'pointer', fontFamily:"'DM Sans', sans-serif", display:'flex', alignItems:'center', justifyContent:'center', gap:8 }}>
-                    {submitting ? <Spinner size={18} color="white"/> : '✅ Mark Attendance'}
-                  </button>
-                </Card>
-              )}
+                )}
 
-              {/* ── Stats ── */}
-              {dataLoading ? (
-                <Card style={{ padding:32, display:'flex', justifyContent:'center' }}>
-                  <Spinner size={24} color="var(--forest)"/>
-                </Card>
-              ) : (
-                <>
-                  <Card style={{ padding:16, marginBottom:16, display:'flex', justifyContent:'space-around', textAlign:'center' }}>
-                    {[
-                      [String(attended),                            'Attended'],
-                      [pct !== null ? `${pct}%` : '—',            'Rate'],
-                      [String(missed),                             'Missed'],
-                      [String(pastScheduled),                      'Scheduled'],
-                    ].map(([v, l]) => (
-                      <div key={l}>
-                        <div style={{ fontWeight:700, fontSize:18, color:'var(--forest)' }}>{v}</div>
-                        <div style={{ fontSize:10, color:'#999', marginTop:2 }}>{l}</div>
+                {/* ── Decorative rule ── */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28,
+                  animation: 'fadeUpSoft 0.5s ease 0.4s both',
+                }}>
+                  <div style={{ flex: 1, height: 1, background: 'rgba(26,58,42,0.18)' }}/>
+                  <span style={{ fontFamily: DISPLAY, fontSize: 13, color: 'var(--moss)', opacity: 0.7 }}>✦</span>
+                  <div style={{ flex: 1, height: 1, background: 'rgba(26,58,42,0.18)' }}/>
+                </div>
+
+                {dataLoading ? (
+                  <div style={{
+                    fontFamily: DISPLAY, fontStyle: 'italic', fontSize: 14,
+                    color: 'var(--moss)', textAlign: 'center', padding: '40px 0',
+                  }}>
+                    Loading attendance records…
+                  </div>
+                ) : (
+                  <>
+                    {/* ── Stats grid 2×2 ── */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      rowGap: 22, columnGap: 24,
+                      marginBottom: 36,
+                      animation: 'fadeUpSoft 0.5s ease 0.5s both',
+                    }}>
+                      <Stat eyebrow="Attended" figure={String(attended)}                       caption="sessions"/>
+                      <Stat eyebrow="Rate"     figure={pct !== null ? `${pct}%` : '—'}         caption={pct !== null && pct >= 75 ? 'on track' : pct !== null ? 'below 75%' : 'no data yet'} accent={pct !== null && pct < 75 ? 'var(--amber)' : undefined}/>
+                      <Stat eyebrow="Missed"   figure={String(missed)}                         caption={missed === 1 ? 'session' : 'sessions'}/>
+                      <Stat eyebrow="Total"    figure={String(pastScheduled)}                  caption="past sessions"/>
+                    </div>
+
+                    {/* ── Calendar ── */}
+                    <div style={{
+                      animation: 'fadeUpSoft 0.5s ease 0.6s both',
+                    }}>
+                      {/* Section header */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                        marginBottom: 18,
+                      }}>
+                        <button onClick={goPrev}
+                          style={{
+                            fontFamily: DISPLAY, fontStyle: 'italic', fontSize: 16,
+                            color: 'var(--moss)', background: 'none', border: 'none',
+                            padding: 0, cursor: 'pointer',
+                          }}>
+                          ‹
+                        </button>
+                        <span style={{
+                          fontFamily: BODY,
+                          fontSize: 10, fontWeight: 700,
+                          color: 'var(--forest)',
+                          letterSpacing: '0.36em',
+                          textTransform: 'uppercase',
+                          flex: 1,
+                          textAlign: 'center',
+                        }}>
+                          {monthLabel}
+                        </span>
+                        <button onClick={goNext}
+                          disabled={isCurrentMonth}
+                          style={{
+                            fontFamily: DISPLAY, fontStyle: 'italic', fontSize: 16,
+                            color: isCurrentMonth ? 'rgba(74,124,89,0.3)' : 'var(--moss)',
+                            background: 'none', border: 'none',
+                            padding: 0, cursor: isCurrentMonth ? 'default' : 'pointer',
+                          }}>
+                          ›
+                        </button>
                       </div>
-                    ))}
-                  </Card>
 
-                  {/* Monthly Calendar */}
-                  <Card style={{ padding:20 }}>
-                    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
-                      <button onClick={goPrev} style={{ background:'var(--mist)', border:'none', borderRadius:8, padding:'6px 10px', cursor:'pointer' }}>
-                        <Icon name="back" size={16} color="var(--charcoal)"/>
-                      </button>
-                      <div style={{ fontWeight:700, fontSize:14 }}>{monthLabel}</div>
-                      <button onClick={goNext} disabled={isCurrentMonth} style={{ background: isCurrentMonth ? 'transparent' : 'var(--mist)', border:'none', borderRadius:8, padding:'6px 10px', cursor: isCurrentMonth ? 'default' : 'pointer', opacity: isCurrentMonth ? 0.2 : 1 }}>
-                        <Icon name="arrow" size={16} color="var(--charcoal)"/>
-                      </button>
-                    </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 4, marginBottom: 6 }}>
+                        {DAY_LABELS.map(d => (
+                          <div key={d} style={{
+                            textAlign: 'center',
+                            fontFamily: BODY,
+                            fontSize: 9, fontWeight: 600,
+                            color: 'var(--moss)',
+                            letterSpacing: '0.18em',
+                            textTransform: 'uppercase',
+                            opacity: 0.65,
+                            paddingBottom: 6,
+                          }}>{d}</div>
+                        ))}
+                      </div>
 
-                    <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:4, marginBottom:4 }}>
-                      {DAY_LABELS.map(d => (
-                        <div key={d} style={{ textAlign:'center', fontSize:9, color:'#bbb', fontWeight:600, paddingBottom:4 }}>{d}</div>
-                      ))}
-                    </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 5 }}>
+                        {buildCalendar().map((cell, i) => (
+                          <div key={i} style={{
+                            aspectRatio: '1',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontFamily: DISPLAY,
+                            fontStyle: cell.status === 'today' ? 'italic' : 'normal',
+                            fontSize: 13,
+                            fontWeight: cell.status === 'today' ? 600 : 400,
+                            ...cellStyle[cell.status],
+                          }}>
+                            {cell.status !== 'empty' ? cell.day : ''}
+                          </div>
+                        ))}
+                      </div>
 
-                    <div style={{ display:'grid', gridTemplateColumns:'repeat(7,1fr)', gap:4 }}>
-                      {buildCalendar().map((cell, i) => (
-                        <div key={i} style={{ aspectRatio:'1', borderRadius:8, background:cellBg[cell.status], display:'flex', alignItems:'center', justifyContent:'center', fontSize:11, fontWeight: cell.status === 'today' ? 700 : 400, color:cellFg[cell.status], border: cell.status === 'today' ? '2px solid var(--earth)' : 'none' }}>
-                          {cell.status !== 'empty' ? cell.day : ''}
+                      {/* Legend */}
+                      <div style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 14,
+                        marginTop: 18,
+                        fontFamily: BODY,
+                        fontSize: 9, fontWeight: 600,
+                        color: 'var(--moss)',
+                        letterSpacing: '0.18em',
+                        textTransform: 'uppercase',
+                      }}>
+                        {([
+                          ['var(--leaf)',                'Present'],
+                          ['rgba(192,57,43,0.15)',       'Missed'],
+                          ['var(--amber)',               'Today'],
+                          ['rgba(26,58,42,0.08)',        'No session'],
+                        ] as [string, string][]).map(([bg, label]) => (
+                          <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{ width: 9, height: 9, background: bg, flexShrink: 0 }}/>
+                            <span>{label}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {pct !== null && pct < 75 && pastScheduled > 0 && (
+                        <div style={{
+                          marginTop: 18,
+                          padding: '12px 14px',
+                          background: 'rgba(212,148,58,0.08)',
+                          borderLeft: '2px solid var(--amber)',
+                          fontFamily: DISPLAY,
+                          fontStyle: 'italic',
+                          fontSize: 13,
+                          color: 'var(--earth)',
+                          lineHeight: 1.5,
+                        }}>
+                          Your attendance is below 75%. Please join the upcoming sessions.
                         </div>
-                      ))}
-                    </div>
+                      )}
 
-                    {/* Legend */}
-                    <div style={{ display:'flex', flexWrap:'wrap', gap:10, marginTop:14 }}>
-                      {[['var(--leaf)','Present'],['rgba(192,57,43,0.2)','Missed'],['var(--amber)','Today'],['var(--mist)','No session'],['var(--sand)','Upcoming']].map(([c,l]) => (
-                        <div key={l} style={{ display:'flex', alignItems:'center', gap:5 }}>
-                          <div style={{ width:10, height:10, borderRadius:3, background:c, flexShrink:0 }}/>
-                          <span style={{ fontSize:10, color:'#888' }}>{l}</span>
+                      {pastScheduled === 0 && (
+                        <div style={{
+                          marginTop: 18,
+                          fontFamily: DISPLAY,
+                          fontStyle: 'italic',
+                          fontSize: 13,
+                          color: 'var(--charcoal)',
+                          opacity: 0.55,
+                          textAlign: 'center',
+                          padding: 18,
+                          border: '1px dashed rgba(26,58,42,0.15)',
+                        }}>
+                          No sessions scheduled yet. Check back after your batch begins.
                         </div>
-                      ))}
+                      )}
                     </div>
-
-                    {pct !== null && pct < 75 && pastScheduled > 0 && (
-                      <div style={{ marginTop:14, padding:'10px 14px', background:'rgba(212,148,58,0.1)', borderRadius:10, border:'1px solid rgba(212,148,58,0.3)', fontSize:12, color:'var(--earth)' }}>
-                        ⚠️ Attendance below 75%. Please attend upcoming sessions.
-                      </div>
-                    )}
-
-                    {pastScheduled === 0 && (
-                      <div style={{ marginTop:14, padding:'10px 14px', background:'var(--mist)', borderRadius:10, fontSize:12, color:'#aaa', textAlign:'center' }}>
-                        No sessions scheduled yet. Check back after your batch starts.
-                      </div>
-                    )}
-                  </Card>
-                </>
-              )}
-            </>
-          )}
+                  </>
+                )}
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      </ParchmentBackdrop>
     </EnrollmentGate>
   );
 };
+
+// ─── Result panel (success / already / invalid / error) ──────────────────────
+
+interface ResultPanelProps {
+  state: Exclude<ScanState, 'idle'>;
+  now: Date;
+  stats: { attended: number; pct: number | null; missed: number; pastScheduled: number };
+  onReset: () => void;
+}
+
+const ResultPanel: React.FC<ResultPanelProps> = ({ state, now, stats, onReset }) => {
+  const config = {
+    success: {
+      eyebrow:  '— Recorded',
+      headline: 'Attendance',
+      accent:   'marked.',
+      sub:      `${now.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })} · ${now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`,
+      cta:      'Done',
+      color:    'var(--leaf)',
+    },
+    already: {
+      eyebrow:  '— Duplicate',
+      headline: 'Already',
+      accent:   'recorded.',
+      sub:      'Your attendance for this session has already been marked.',
+      cta:      'OK',
+      color:    'var(--moss)',
+    },
+    invalid: {
+      eyebrow:  '— Not Recognised',
+      headline: 'Invalid',
+      accent:   'code.',
+      sub:      'This code is invalid or has expired. Ask your trainer for the current session code.',
+      cta:      'Try Again',
+      color:    'var(--red)',
+    },
+    error: {
+      eyebrow:  '— Error',
+      headline: 'Something',
+      accent:   'went wrong.',
+      sub:      'Please try again, or contact support if it continues.',
+      cta:      'Try Again',
+      color:    'var(--red)',
+    },
+  }[state];
+
+  return (
+    <div key={state} style={{ animation: 'fadeUpSoft 0.4s ease both' }}>
+      <div style={{
+        fontFamily: BODY,
+        fontSize: 10, fontWeight: 700,
+        color: config.color,
+        letterSpacing: '0.36em',
+        textTransform: 'uppercase',
+        marginBottom: 16,
+      }}>
+        {config.eyebrow}
+      </div>
+
+      <h1 style={{
+        fontFamily: DISPLAY,
+        fontSize: 'clamp(40px, 11vw, 58px)',
+        color: 'var(--forest)',
+        fontWeight: 400,
+        lineHeight: 0.96,
+        letterSpacing: '-0.022em',
+        margin: 0, marginBottom: 18,
+      }}>
+        {config.headline}<br/>
+        <em style={{ fontStyle: 'italic', color: config.color }}>{config.accent}</em>
+      </h1>
+
+      <p style={{
+        fontFamily: DISPLAY,
+        fontStyle: 'italic',
+        fontSize: 16,
+        color: 'var(--charcoal)',
+        opacity: 0.7,
+        lineHeight: 1.55,
+        margin: '0 0 32px',
+      }}>
+        {config.sub}
+      </p>
+
+      {/* Quick stats — only on success */}
+      {state === 'success' && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          rowGap: 18, columnGap: 24,
+          marginBottom: 32,
+        }}>
+          <Stat eyebrow="Total" figure={String(stats.attended)} caption="sessions attended"/>
+          <Stat eyebrow="Rate"  figure={stats.pct !== null ? `${stats.pct}%` : '—'} caption={stats.pct !== null && stats.pct >= 75 ? 'on track' : 'building up'}/>
+        </div>
+      )}
+
+      <PrimaryButton onClick={onReset} label={config.cta} arrow="→"/>
+    </div>
+  );
+};
+
+// ─── Stat sub-component ──────────────────────────────────────────────────────
+
+const Stat: React.FC<{ eyebrow: string; figure: string; caption: string; accent?: string }> = ({ eyebrow, figure, caption, accent }) => (
+  <div style={{
+    paddingTop: 14,
+    borderTop: `1px solid ${accent ?? 'rgba(26,58,42,0.2)'}`,
+  }}>
+    <div style={{
+      fontFamily: BODY,
+      fontSize: 9, fontWeight: 700,
+      color: accent ?? 'var(--moss)',
+      letterSpacing: '0.32em',
+      textTransform: 'uppercase',
+      marginBottom: 6,
+    }}>{eyebrow}</div>
+    <div style={{
+      fontFamily: DISPLAY,
+      fontSize: 24,
+      fontWeight: 400,
+      color: 'var(--forest)',
+      lineHeight: 1.05,
+      letterSpacing: '-0.018em',
+    }}>{figure}</div>
+    <div style={{
+      fontFamily: DISPLAY,
+      fontStyle: 'italic',
+      fontSize: 12,
+      color: 'var(--charcoal)',
+      opacity: 0.55,
+      marginTop: 4,
+      lineHeight: 1.3,
+    }}>{caption}</div>
+  </div>
+);
+
 export default AttendanceScreen;

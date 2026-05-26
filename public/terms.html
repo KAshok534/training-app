@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#1a3a2a" />
+<meta name="description" content="Terms of Service — AIWMR Training Academy" />
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png" />
+<title>Terms of Service · AIWMR Training Academy</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Fraunces:ital,opsz,wght,SOFT@0,9..144,400..700,0..100;1,9..144,400..700,0..100&display=swap" />
+
+<style>
+  :root {
+    --forest:   #1a3a2a;
+    --moss:     #4a7c59;
+    --cream:    #f7f3ec;
+    --charcoal: #2c2c2c;
+    --gold:     #c9a84c;
+    --display:  'Fraunces', 'Playfair Display', Georgia, serif;
+    --body:     'DM Sans', system-ui, sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--cream);
+    color: var(--charcoal);
+    font-family: var(--body);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  body { position: relative; min-height: 100vh; overflow-x: hidden; }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 0; opacity: 0.5;
+    background: url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.07 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+  .topo {
+    position: fixed; top: -160px; right: -140px;
+    width: 520px; height: 520px;
+    opacity: 0.08; pointer-events: none; z-index: 0;
+  }
+  .topo ellipse { fill: none; stroke: #1a3a2a; stroke-width: 1.1; }
+  .wrap { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; padding: 48px 28px 80px; }
+  .topbar { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 48px; }
+  .topbar a {
+    font-family: var(--display); font-style: italic; font-size: 14px;
+    color: var(--moss); text-decoration: none;
+    background: rgba(255,255,255,0.5); border: 1px solid rgba(26,58,42,0.12);
+    padding: 6px 14px; letter-spacing: 0.04em;
+  }
+  .meta {
+    font-family: var(--body); font-size: 9px; font-weight: 500;
+    color: var(--moss); letter-spacing: 0.28em; text-transform: uppercase;
+    text-align: right; line-height: 1.8; padding-top: 6px;
+  }
+  .meta span { opacity: 0.65; }
+  .eyebrow {
+    font-family: var(--body); font-size: 10px; font-weight: 600;
+    color: var(--moss); letter-spacing: 0.34em; text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  h1 {
+    font-family: var(--display); font-size: clamp(46px, 9vw, 72px);
+    color: var(--forest); font-weight: 400;
+    line-height: 0.96; letter-spacing: -0.022em;
+    margin: 0 0 18px;
+    font-variation-settings: '"opsz" 144, "SOFT" 80';
+  }
+  h1 em { font-style: italic; color: var(--moss); font-weight: 400; }
+  .lede {
+    font-family: var(--display); font-style: italic;
+    font-size: 18px; color: var(--charcoal); opacity: 0.72;
+    line-height: 1.5; margin: 0 0 36px; max-width: 540px;
+  }
+  .version {
+    display: inline-block;
+    font-family: var(--body); font-size: 10px; font-weight: 600;
+    color: var(--moss); letter-spacing: 0.22em; text-transform: uppercase;
+    padding: 5px 12px; background: rgba(255,255,255,0.5);
+    border: 1px solid rgba(26,58,42,0.18); margin-bottom: 22px;
+  }
+  .rule { display: flex; align-items: center; gap: 16px; margin: 0 0 40px; }
+  .rule hr { flex: 1; height: 1px; background: rgba(26,58,42,0.18); border: none; }
+  .rule .ornament { font-family: var(--display); font-size: 14px; color: var(--moss); opacity: 0.7; }
+  .toc {
+    margin: 32px 0 48px; padding: 22px 22px 18px;
+    background: rgba(255,255,255,0.45); border: 1px solid rgba(26,58,42,0.12);
+  }
+  .toc-label {
+    font-family: var(--body); font-size: 9px; font-weight: 700;
+    color: var(--moss); letter-spacing: 0.4em; text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .toc ol { list-style: none; padding: 0; margin: 0; columns: 2; column-gap: 22px; }
+  @media (max-width: 540px) { .toc ol { columns: 1; } }
+  .toc ol li {
+    font-family: var(--display); font-style: italic;
+    font-size: 14px; line-height: 2; break-inside: avoid;
+  }
+  .toc ol li a {
+    color: var(--charcoal); opacity: 0.78;
+    text-decoration: none; border-bottom: 1px dotted transparent;
+  }
+  .toc ol li a:hover { border-bottom-color: var(--moss); }
+  .toc ol li .num { color: var(--moss); font-weight: 500; margin-right: 8px; }
+  section { margin-bottom: 44px; }
+  .section-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .section-head .label {
+    font-family: var(--body); font-size: 10px; font-weight: 700;
+    color: var(--forest); letter-spacing: 0.36em; text-transform: uppercase;
+  }
+  .section-head .label .num {
+    color: var(--moss); font-family: var(--display); font-style: italic;
+    font-size: 16px; font-weight: 400; letter-spacing: -0.02em;
+    text-transform: none; margin-right: 10px; vertical-align: -1px;
+  }
+  .section-head hr { flex: 1; height: 1px; background: rgba(26,58,42,0.18); border: none; }
+  h3 {
+    font-family: var(--display); font-style: italic;
+    font-size: 18px; font-weight: 500; color: var(--moss);
+    margin: 22px 0 8px;
+  }
+  p {
+    font-family: var(--display); font-size: 16px;
+    color: var(--charcoal); opacity: 0.85; line-height: 1.65;
+    margin: 0 0 14px;
+  }
+  ul {
+    list-style: none; padding: 0; margin: 0 0 14px;
+    font-family: var(--display); font-size: 16px;
+    color: var(--charcoal); opacity: 0.85; line-height: 1.7;
+  }
+  ul li { display: flex; gap: 14px; margin-bottom: 6px; }
+  ul li::before { content: '✦'; color: var(--moss); font-size: 12px; flex-shrink: 0; line-height: 1.7; }
+  strong, b {
+    font-family: var(--body); font-weight: 700;
+    color: var(--forest); font-style: normal;
+  }
+  a {
+    color: var(--forest);
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 3px;
+  }
+  .contact-card {
+    padding: 22px 22px 20px;
+    background: rgba(45,90,61,0.05);
+    border-left: 2px solid var(--moss);
+    margin-top: 12px;
+  }
+  .contact-card .contact-eyebrow {
+    font-family: var(--body); font-size: 9px; font-weight: 700;
+    color: var(--moss); letter-spacing: 0.4em; text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .contact-card a {
+    font-family: var(--body); font-size: 13px; color: var(--forest);
+    line-height: 1.8; display: block; text-decoration: none;
+    border-bottom: 1px solid var(--moss); width: fit-content; margin-bottom: 4px;
+  }
+  footer {
+    margin-top: 64px; padding-top: 32px;
+    border-top: 1px solid rgba(26,58,42,0.18); text-align: center;
+    font-family: var(--display); font-style: italic;
+    font-size: 12px; color: var(--moss); opacity: 0.7;
+    letter-spacing: 0.04em;
+  }
+</style>
+</head>
+<body>
+
+<svg class="topo" viewBox="0 0 400 400" aria-hidden="true">
+  <ellipse cx="200" cy="200" rx="32"  ry="42"/>
+  <ellipse cx="200" cy="200" rx="58"  ry="74"/>
+  <ellipse cx="200" cy="200" rx="86"  ry="108"/>
+  <ellipse cx="200" cy="200" rx="116" ry="144"/>
+  <ellipse cx="200" cy="200" rx="148" ry="182"/>
+</svg>
+
+<main class="wrap">
+
+  <div class="topbar">
+    <a href="/">↩ back to app</a>
+    <div class="meta">AIWMR<br><span>Hyderabad · India</span></div>
+  </div>
+
+  <div class="eyebrow">— Terms of Service</div>
+  <h1>The rules of<br><em>engagement.</em></h1>
+
+  <p class="lede">
+    By using the AIWMR Training Academy app or website, you agree to these terms. They describe what we offer, what we expect from you, and the limits of our responsibility.
+  </p>
+
+  <div class="version">Effective 23 May 2026 · Version 1.0</div>
+
+  <div class="rule"><hr/><span class="ornament">✦</span><hr/></div>
+
+  <div class="toc">
+    <div class="toc-label">In these terms</div>
+    <ol>
+      <li><a href="#acceptance"><span class="num">i.</span>Acceptance of terms</a></li>
+      <li><a href="#service"><span class="num">ii.</span>The service we provide</a></li>
+      <li><a href="#account"><span class="num">iii.</span>Account &amp; eligibility</a></li>
+      <li><a href="#payments"><span class="num">iv.</span>Payments &amp; refunds</a></li>
+      <li><a href="#content"><span class="num">v.</span>Course content &amp; access</a></li>
+      <li><a href="#ip"><span class="num">vi.</span>Intellectual property</a></li>
+      <li><a href="#conduct"><span class="num">vii.</span>Acceptable use</a></li>
+      <li><a href="#certificates"><span class="num">viii.</span>Certificates &amp; rewards</a></li>
+      <li><a href="#disclaimer"><span class="num">ix.</span>Disclaimer &amp; limits</a></li>
+      <li><a href="#termination"><span class="num">x.</span>Termination</a></li>
+      <li><a href="#changes"><span class="num">xi.</span>Changes</a></li>
+      <li><a href="#law"><span class="num">xii.</span>Governing law &amp; contact</a></li>
+    </ol>
+  </div>
+
+  <!-- i. Acceptance -->
+  <section id="acceptance">
+    <div class="section-head"><span class="label"><span class="num">i.</span>Acceptance of terms</span><hr/></div>
+    <p>By creating an account, enrolling in a course, or otherwise using AIWMR Training Academy (the &ldquo;Service&rdquo;), you agree to be bound by these Terms of Service and our <a href="/privacy.html">Privacy Policy</a>. If you do not agree, please do not use the Service.</p>
+  </section>
+
+  <!-- ii. Service -->
+  <section id="service">
+    <div class="section-head"><span class="label"><span class="num">ii.</span>The service we provide</span><hr/></div>
+    <p>AIWMR provides online certification courses, live training sessions, assessments, and digital certificates in waste management, environment, and sustainability. The Service is operated by <strong>Ashrita Institute for Waste Management &amp; Research Pvt Ltd</strong> ("we", "us", "AIWMR") from Hyderabad, India.</p>
+    <p>We strive to keep the Service available at all times but do not guarantee uninterrupted access. Maintenance, upgrades, and unforeseen technical issues may cause temporary downtime.</p>
+  </section>
+
+  <!-- iii. Account -->
+  <section id="account">
+    <div class="section-head"><span class="label"><span class="num">iii.</span>Account &amp; eligibility</span><hr/></div>
+    <ul>
+      <li>You must be <strong>18 years or older</strong> to create an account and enroll in a course.</li>
+      <li>You must provide accurate, current, and complete information when registering.</li>
+      <li>You are responsible for safeguarding your password and for any activity under your account.</li>
+      <li>You may only register one personal account. Sharing an account is not permitted.</li>
+      <li>Notify us immediately at <a href="mailto:director@aiwmr.org">director@aiwmr.org</a> of any unauthorized use.</li>
+    </ul>
+  </section>
+
+  <!-- iv. Payments -->
+  <section id="payments">
+    <div class="section-head"><span class="label"><span class="num">iv.</span>Payments &amp; refunds</span><hr/></div>
+    <h3>Course fees</h3>
+    <p>Course fees are listed in Indian Rupees (₹) for domestic students and US Dollars ($) for international students. All applicable taxes (currently 18% GST for Indian transactions) are added at checkout. Fees are payable in full at the time of enrollment.</p>
+
+    <h3>Payment processor</h3>
+    <p>Payments are processed by <strong>Razorpay Software Pvt Ltd</strong>. By making a payment you also agree to Razorpay's terms of service. We never store your card or banking credentials.</p>
+
+    <h3>Refund policy</h3>
+    <ul>
+      <li><strong>Within 7 days of enrollment and before accessing any module content</strong> — full refund minus processing fees (up to 3%).</li>
+      <li><strong>After accessing course content</strong> — no refund will be issued.</li>
+      <li>Refund requests must be sent in writing to <a href="mailto:director@aiwmr.org">director@aiwmr.org</a>.</li>
+      <li>Approved refunds are returned to the original payment method within 10 working days.</li>
+    </ul>
+
+    <h3>Bank-transfer enrollments</h3>
+    <p>If you enroll via bank transfer rather than online payment, the same refund policy applies once we receive your payment and grant access.</p>
+  </section>
+
+  <!-- v. Course content -->
+  <section id="content">
+    <div class="section-head"><span class="label"><span class="num">v.</span>Course content &amp; access</span><hr/></div>
+    <p>Once enrolled, you receive access to the course modules, slide decks, assessments, live sessions, and certificate (upon successful completion). Access duration is as specified in the course description.</p>
+    <p>Course content may be updated, revised, or replaced from time to time. We will preserve continuity of learning for currently enrolled students wherever practical.</p>
+  </section>
+
+  <!-- vi. IP -->
+  <section id="ip">
+    <div class="section-head"><span class="label"><span class="num">vi.</span>Intellectual property</span><hr/></div>
+    <p>All course materials — slides, videos, assessments, written content, branding, and the underlying software — are owned by AIWMR or licensed to us, and are protected by Indian and international copyright law.</p>
+    <p>You may view and study the content for your personal, non-commercial learning. You may <strong>not</strong>:</p>
+    <ul>
+      <li>Download, reproduce, distribute, or republish any course material outside the Service</li>
+      <li>Share your account credentials or course access with others</li>
+      <li>Use any content for commercial training or competing services</li>
+      <li>Remove watermarks, attribution, or any AIWMR branding</li>
+    </ul>
+    <p>Violations may result in immediate suspension without refund and legal action.</p>
+  </section>
+
+  <!-- vii. Conduct -->
+  <section id="conduct">
+    <div class="section-head"><span class="label"><span class="num">vii.</span>Acceptable use</span><hr/></div>
+    <p>You agree to use the Service respectfully and lawfully. You may not:</p>
+    <ul>
+      <li>Impersonate any person, organization, or affiliation</li>
+      <li>Disrupt the Service or interfere with other students' learning</li>
+      <li>Attempt to bypass authentication, payment, or access controls</li>
+      <li>Use the Service for fraud, harassment, or unlawful activity</li>
+      <li>Upload viruses, malware, or harmful code</li>
+      <li>Reverse-engineer, decompile, or extract source code from the app</li>
+    </ul>
+  </section>
+
+  <!-- viii. Certificates -->
+  <section id="certificates">
+    <div class="section-head"><span class="label"><span class="num">viii.</span>Certificates &amp; rewards</span><hr/></div>
+    <p>Certificates are issued upon successful completion of all course modules and their assessments at <strong>60% or higher</strong>. The certificate is in PDF / digital form and includes a unique verification ID.</p>
+
+    <h3>Special rewards (90%+ achievement)</h3>
+    <p>Students who score <strong>90% or higher</strong> on a module assessment may qualify for one of the following from AIWMR:</p>
+    <ul>
+      <li>A free internship placement, or</li>
+      <li>A free academic project report</li>
+    </ul>
+    <p>Reward eligibility is at AIWMR's discretion and subject to verifying the integrity of the assessment attempt. Rewards must be claimed within 90 days of the qualifying score by writing to <a href="mailto:director@aiwmr.org">director@aiwmr.org</a>. Rewards are non-transferable and have no cash value.</p>
+
+    <h3>Verification</h3>
+    <p>Employers and accreditation bodies may verify any AIWMR certificate by contacting <a href="mailto:director@aiwmr.org">director@aiwmr.org</a> with the certificate ID. We retain certificate records indefinitely for this purpose.</p>
+  </section>
+
+  <!-- ix. Disclaimer -->
+  <section id="disclaimer">
+    <div class="section-head"><span class="label"><span class="num">ix.</span>Disclaimer &amp; limits</span><hr/></div>
+    <p>The Service is provided <strong>"as is"</strong> and <strong>"as available"</strong>. AIWMR makes no warranties, express or implied, regarding the Service or course content beyond what is required by law.</p>
+    <p>While we work to ensure the accuracy and currency of our courses, AIWMR makes no warranty that course content will result in specific career outcomes, employment, or commercial success.</p>
+    <p>To the maximum extent permitted by law, AIWMR's total liability arising from your use of the Service is limited to the amount you paid for the course in question.</p>
+    <p>We are not liable for indirect, incidental, or consequential damages, including loss of opportunity, business, or data.</p>
+  </section>
+
+  <!-- x. Termination -->
+  <section id="termination">
+    <div class="section-head"><span class="label"><span class="num">x.</span>Termination</span><hr/></div>
+    <p>You may close your account at any time by writing to <a href="mailto:director@aiwmr.org">director@aiwmr.org</a>. Course access ends when your account is closed (subject to our retention policy in the Privacy Policy).</p>
+    <p>We may suspend or terminate your account immediately and without refund if you:</p>
+    <ul>
+      <li>Violate these Terms or the Privacy Policy</li>
+      <li>Infringe AIWMR's or others' intellectual property</li>
+      <li>Engage in fraud, payment chargebacks, or abuse</li>
+    </ul>
+  </section>
+
+  <!-- xi. Changes -->
+  <section id="changes">
+    <div class="section-head"><span class="label"><span class="num">xi.</span>Changes</span><hr/></div>
+    <p>We may update these Terms from time to time. Material changes will be notified to registered users by email at least 14 days before they take effect. Continued use after the effective date constitutes acceptance.</p>
+  </section>
+
+  <!-- xii. Law -->
+  <section id="law">
+    <div class="section-head"><span class="label"><span class="num">xii.</span>Governing law &amp; contact</span><hr/></div>
+    <p>These Terms are governed by the laws of <strong>India</strong>. Any disputes shall be subject to the exclusive jurisdiction of the courts of <strong>Hyderabad, Telangana</strong>.</p>
+    <p>For all questions about these Terms, please contact:</p>
+    <div class="contact-card">
+      <div class="contact-eyebrow">✦ Get in touch</div>
+      <p style="font-family: var(--display); font-style: italic; font-size: 17px; color: var(--forest); font-weight: 500; margin: 0 0 12px;">Ashrita Institute for Waste Management &amp; Research Pvt Ltd</p>
+      <a href="mailto:director@aiwmr.org">director@aiwmr.org</a>
+      <a href="tel:+919676975725">+91 96769 75725</a>
+      <a href="https://www.aiwmr.org" target="_blank" rel="noopener">www.aiwmr.org</a>
+    </div>
+  </section>
+
+  <footer>
+    ✦&nbsp;&nbsp;Ashrita Institute for Waste Management &amp; Research<br>
+    <span style="opacity: 0.7;">Last updated 23 May 2026</span>
+  </footer>
+
+</main>
+
+</body>
+</html>

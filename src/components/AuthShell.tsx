@@ -85,7 +85,17 @@ const AuthShell: React.FC<Props> = ({ children }) => (
                 textDecorationStyle: 'dotted',
                 textUnderlineOffset: '3px',
               }}>
-              privacy policy
+              privacy
+            </a>
+            <span style={{ margin: '0 8px', opacity: 0.5 }}>·</span>
+            <a href="/terms.html"
+              style={{
+                color: 'var(--moss)',
+                textDecoration: 'underline',
+                textDecorationStyle: 'dotted',
+                textUnderlineOffset: '3px',
+              }}>
+              terms
             </a>
           </div>
         </div>
