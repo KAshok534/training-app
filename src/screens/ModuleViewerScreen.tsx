@@ -1,16 +1,22 @@
 /**
- * ModuleViewerScreen
+ * ModuleViewerScreen — editorial dark-mode slide viewer
  *
  * Swipeable per-slide image viewer for 'slideshow' type modules.
  * Loads slides from public/course-content/<path>/slide-01.jpg … slide-NN.jpg
  *
+ * Input methods (all three work):
+ *   - Swipe left / right
+ *   - Tap left-third / right-third of the screen
+ *   - Prev / Next buttons in the bottom bar
+ *
  * On open: marks user_progress → 'in-progress' (unless already 'completed')
- * On last slide: shows "Take Assessment →" CTA
+ * On last slide: bottom bar morphs to "Take Assessment" CTA
  */
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useEnrollment } from '../hooks/useEnrollment';
+import { DISPLAY, BODY } from '../components/AuthShell';
 import type { CourseModule } from '../types';
 
 interface Props {
@@ -19,143 +25,504 @@ interface Props {
   onStartAssessment: (module: CourseModule) => void;
 }
 
+// ── Helpers ────────────────────────────────────────────────────────────────
 const pad = (n: number) => String(n).padStart(2, '0');
+
+const toRoman = (n: number): string => {
+  const map: [number, string][] = [
+    [1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'],
+    [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'],
+    [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I'],
+  ];
+  let result = ''; let num = n;
+  for (const [val, sym] of map) {
+    while (num >= val) { result += sym; num -= val; }
+  }
+  return result;
+};
 
 const ModuleViewerScreen: React.FC<Props> = ({ moduleData, onBack, onStartAssessment }) => {
   const { user } = useAuth();
-  useEnrollment(); // ensure enrollment context is warm (used by child screens)
-  const total           = moduleData.slideCount ?? 1;
-  const base            = moduleData.slideBaseUrl ?? '';
+  useEnrollment(); // warm context for child screens
 
-  const [current, setCurrent]   = useState(1);
-  const [imgError, setImgError] = useState(false);
+  const total = moduleData.slideCount ?? 1;
+  const base  = moduleData.slideBaseUrl ?? '';
 
-  // Swipe tracking
+  const [current, setCurrent]     = useState(1);
+  const [imgError, setImgError]   = useState(false);
+  const [showHint, setShowHint]   = useState(true);
+  const [imgLoaded, setImgLoaded] = useState(false);
+
   const swipeStartX = useRef<number | null>(null);
+  const swipeStartY = useRef<number | null>(null);
 
   // Mark in-progress on mount (fire-and-forget)
   useEffect(() => {
     if (!user || moduleData.status === 'completed') return;
     supabase.from('user_progress').upsert(
       { user_id: user.id, module_id: moduleData.id, status: 'in-progress' },
-      { onConflict: 'user_id,module_id' }
+      { onConflict: 'user_id,module_id' },
     );
   }, [user, moduleData.id, moduleData.status]);
 
-  const goTo = (n: number) => {
+  // Hide the swipe hint after 3.5s
+  useEffect(() => {
+    if (!showHint) return;
+    const t = setTimeout(() => setShowHint(false), 3500);
+    return () => clearTimeout(t);
+  }, [showHint]);
+
+  // Reset image-loaded state when slide changes
+  useEffect(() => { setImgLoaded(false); setImgError(false); }, [current]);
+
+  const goTo = useCallback((n: number) => {
     setImgError(false);
-    setCurrent(Math.max(1, Math.min(total, n)));
-  };
+    setCurrent(c => {
+      const next = Math.max(1, Math.min(total, n));
+      if (next !== c) setShowHint(false); // any nav dismisses the hint
+      return next;
+    });
+  }, [total]);
 
-  const handlePointerDown = (e: React.PointerEvent) => { swipeStartX.current = e.clientX; };
-  const handlePointerUp   = (e: React.PointerEvent) => {
-    if (swipeStartX.current === null) return;
+  // ── Swipe handling (also distinguishes from vertical scroll attempts) ───
+  const handlePointerDown = (e: React.PointerEvent) => {
+    swipeStartX.current = e.clientX;
+    swipeStartY.current = e.clientY;
+  };
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (swipeStartX.current === null || swipeStartY.current === null) return;
     const dx = e.clientX - swipeStartX.current;
+    const dy = e.clientY - swipeStartY.current;
     swipeStartX.current = null;
-    if (Math.abs(dx) < 40) return; // too short
-    if (dx < 0) goTo(current + 1); // swipe left → next
-    else         goTo(current - 1); // swipe right → prev
+    swipeStartY.current = null;
+
+    // Vertical swipe — ignore (user might be trying to scroll)
+    if (Math.abs(dy) > Math.abs(dx)) return;
+    // Too short — treat as tap (handled separately)
+    if (Math.abs(dx) < 40) return;
+
+    if (dx < 0) goTo(current + 1);
+    else        goTo(current - 1);
   };
 
-  const pct = Math.round(((current - 1) / Math.max(total - 1, 1)) * 100);
+  // ── Tap zones: left third → prev, right third → next, middle → nothing ──
+  const handleZoneClick = (zone: 'left' | 'right') => {
+    if (zone === 'left')  goTo(current - 1);
+    if (zone === 'right') goTo(current + 1);
+  };
 
+  // ── Keyboard navigation (for desktop preview) ───────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight') goTo(current + 1);
+      if (e.key === 'ArrowLeft')  goTo(current - 1);
+      if (e.key === 'Escape')     onBack();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [current, goTo, onBack]);
+
+  const pct      = Math.round(((current - 1) / Math.max(total - 1, 1)) * 100);
   const slideUrl = `${base}/slide-${pad(current)}.jpg`;
   const isLast   = current === total;
+  const isFirst  = current === 1;
+
+  // Preload next + previous slide for instant transitions
+  const preloadNext = current < total ? `${base}/slide-${pad(current + 1)}.jpg` : null;
+  const preloadPrev = current > 1     ? `${base}/slide-${pad(current - 1)}.jpg` : null;
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'#111', position:'fixed', inset:0, zIndex:50 }}>
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 50,
+      display: 'flex', flexDirection: 'column',
+      background: '#0d1d15', // deep forest, paper grain darkened
+      overflow: 'hidden',
+    }}>
+      {/* Subtle paper grain overlay (very low opacity for the dark mode) */}
+      <div aria-hidden style={{
+        position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0,
+        opacity: 0.4,
+        background: `url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>")`,
+      }}/>
 
-      {/* Header */}
-      <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 16px', background:'rgba(0,0,0,0.7)', flexShrink:0, paddingTop:`max(12px, env(safe-area-inset-top))` }}>
-        <button onClick={onBack} style={{ background:'rgba(255,255,255,0.1)', border:'none', color:'white', width:36, height:36, borderRadius:10, fontSize:18, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center' }}>
-          ‹
-        </button>
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ color:'white', fontSize:13, fontWeight:700, fontFamily:"'DM Sans', sans-serif", overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
-            {moduleData.title}
+      {/* ─── TOP BAR — editorial chrome ──────────────────────────────────── */}
+      <header style={{
+        position: 'relative', zIndex: 2, flexShrink: 0,
+        padding: 'calc(14px + var(--safe-top)) 20px 12px',
+        animation: 'fadeUpSoft 0.5s ease 0.1s both',
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
+          maxWidth: 520, margin: '0 auto',
+        }}>
+          <button onClick={onBack}
+            style={{
+              fontFamily: DISPLAY,
+              fontStyle: 'italic',
+              fontSize: 14,
+              color: 'rgba(255,255,255,0.7)',
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              padding: '6px 14px',
+              borderRadius: 2,
+              cursor: 'pointer',
+              letterSpacing: '0.04em',
+            }}
+          >
+            ✕ exit
+          </button>
+
+          <div style={{ flex: 1, minWidth: 0, textAlign: 'center' }}>
+            <div style={{
+              fontFamily: DISPLAY,
+              fontSize: 14,
+              fontStyle: 'italic',
+              color: 'rgba(255,255,255,0.9)',
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              lineHeight: 1.2,
+            }}>
+              {moduleData.title}
+            </div>
+            <div style={{
+              fontFamily: BODY,
+              fontSize: 9, fontWeight: 600,
+              color: 'rgba(168,197,176,0.7)',
+              letterSpacing: '0.34em',
+              textTransform: 'uppercase',
+              marginTop: 3,
+            }}>
+              {toRoman(current)} <span style={{ opacity: 0.5 }}>of</span> {toRoman(total)}
+            </div>
           </div>
-          <div style={{ color:'rgba(255,255,255,0.5)', fontSize:11, fontFamily:"'DM Sans', sans-serif", marginTop:1 }}>
-            Slide {current} of {total}
+
+          <div style={{
+            fontFamily: BODY,
+            fontSize: 10, fontWeight: 700,
+            color: 'var(--leaf)',
+            letterSpacing: '0.14em',
+            minWidth: 36, textAlign: 'right',
+            flexShrink: 0,
+          }}>
+            {pct}%
           </div>
         </div>
-        <div style={{ color:'var(--leaf)', fontSize:12, fontWeight:700, fontFamily:"'DM Sans', sans-serif", flexShrink:0 }}>
-          {pct}%
+
+        {/* Progress rule */}
+        <div style={{
+          maxWidth: 520, margin: '14px auto 0',
+          height: 1,
+          background: 'rgba(255,255,255,0.1)',
+          position: 'relative',
+        }}>
+          <div style={{
+            position: 'absolute', left: 0, top: 0,
+            height: 1,
+            background: 'var(--leaf)',
+            width: `${pct}%`,
+            transition: 'width 0.5s ease',
+            boxShadow: '0 0 8px rgba(106,173,120,0.5)',
+          }}/>
         </div>
-      </div>
+      </header>
 
-      {/* Progress bar */}
-      <div style={{ height:3, background:'rgba(255,255,255,0.1)', flexShrink:0 }}>
-        <div style={{ height:'100%', background:'var(--leaf)', width:`${pct}%`, transition:'width 0.3s ease' }}/>
-      </div>
-
-      {/* Slide image */}
+      {/* ─── SLIDE STAGE ───────────────────────────────────────────────── */}
       <div
         onPointerDown={handlePointerDown}
         onPointerUp={handlePointerUp}
-        style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', overflow:'hidden', touchAction:'pan-y', userSelect:'none' }}
+        style={{
+          position: 'relative', zIndex: 1,
+          flex: 1,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          touchAction: 'pan-y',
+          userSelect: 'none',
+          padding: '12px 16px',
+          overflow: 'hidden',
+        }}
       >
-        {imgError ? (
-          <div style={{ textAlign:'center', color:'rgba(255,255,255,0.4)' }}>
-            <div style={{ fontSize:40, marginBottom:8 }}>🖼️</div>
-            <div style={{ fontSize:13 }}>Slide unavailable</div>
+        {/* Left tap zone (prev) */}
+        <div
+          onClick={() => handleZoneClick('left')}
+          style={{
+            position: 'absolute',
+            left: 0, top: 0, bottom: 0,
+            width: '32%',
+            zIndex: 3,
+            cursor: isFirst ? 'default' : 'w-resize',
+          }}
+          aria-label="Previous slide"
+        />
+
+        {/* Right tap zone (next) */}
+        <div
+          onClick={() => handleZoneClick('right')}
+          style={{
+            position: 'absolute',
+            right: 0, top: 0, bottom: 0,
+            width: '32%',
+            zIndex: 3,
+            cursor: isLast ? 'default' : 'e-resize',
+          }}
+          aria-label="Next slide"
+        />
+
+        {/* The slide itself — floats with a soft drop shadow like a printed plate */}
+        <div style={{
+          position: 'relative',
+          maxWidth: '100%', maxHeight: '100%',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          filter: 'drop-shadow(0 18px 40px rgba(0,0,0,0.55))',
+        }}>
+          {imgError ? (
+            <div style={{
+              padding: '40px 30px',
+              textAlign: 'center',
+              fontFamily: DISPLAY,
+              fontStyle: 'italic',
+              color: 'rgba(255,255,255,0.5)',
+            }}>
+              <div style={{ fontSize: 40, marginBottom: 12, opacity: 0.5 }}>✦</div>
+              <div style={{ fontSize: 15 }}>This slide could not be loaded.</div>
+            </div>
+          ) : (
+            <img
+              key={slideUrl}
+              src={slideUrl}
+              alt={`Slide ${current}`}
+              draggable={false}
+              onLoad={() => setImgLoaded(true)}
+              onError={() => setImgError(true)}
+              style={{
+                maxWidth: '100%',
+                maxHeight: '100%',
+                objectFit: 'contain',
+                display: 'block',
+                opacity: imgLoaded ? 1 : 0,
+                transition: 'opacity 0.25s ease',
+                borderRadius: 2,
+              }}
+            />
+          )}
+
+          {/* Loading shimmer placeholder */}
+          {!imgLoaded && !imgError && (
+            <div style={{
+              position: 'absolute', inset: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: DISPLAY, fontStyle: 'italic',
+              fontSize: 13, color: 'rgba(255,255,255,0.35)',
+              letterSpacing: '0.04em',
+            }}>
+              loading slide…
+            </div>
+          )}
+        </div>
+
+        {/* First-time swipe hint */}
+        {showHint && current === 1 && (
+          <div style={{
+            position: 'absolute',
+            bottom: 20, left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 4,
+            pointerEvents: 'none',
+            fontFamily: DISPLAY,
+            fontStyle: 'italic',
+            fontSize: 13,
+            color: 'rgba(255,255,255,0.6)',
+            letterSpacing: '0.05em',
+            background: 'rgba(0,0,0,0.4)',
+            backdropFilter: 'blur(10px)',
+            padding: '8px 18px',
+            borderRadius: 2,
+            border: '1px solid rgba(255,255,255,0.08)',
+            animation: 'fadeUpSoft 0.5s ease 0.6s both, hintPulse 2s ease-in-out 1s infinite',
+            whiteSpace: 'nowrap',
+          }}>
+            swipe or tap edges to navigate
           </div>
-        ) : (
-          <img
-            key={slideUrl}
-            src={slideUrl}
-            alt={`Slide ${current}`}
-            draggable={false}
-            onError={() => setImgError(true)}
-            style={{ maxWidth:'100%', maxHeight:'100%', objectFit:'contain', display:'block' }}
-          />
         )}
       </div>
 
-      {/* Bottom controls */}
-      <div style={{ flexShrink:0, background:'rgba(0,0,0,0.7)', padding:'12px 16px', paddingBottom:`max(12px, env(safe-area-inset-bottom))` }}>
-        {isLast ? (
-          /* Last slide — show Assessment CTA */
-          <div>
-            <button
-              onClick={() => onStartAssessment(moduleData)}
-              style={{ width:'100%', padding:'16px', background:'var(--leaf)', color:'white', border:'none', borderRadius:14, fontSize:15, fontWeight:700, fontFamily:"'DM Sans', sans-serif", cursor:'pointer', marginBottom:10 }}
-            >
-              🎯 Take Assessment →
-            </button>
-            <div style={{ display:'flex', gap:10 }}>
+      {/* ─── BOTTOM BAR — morphs on last slide ────────────────────────────── */}
+      <footer style={{
+        position: 'relative', zIndex: 2, flexShrink: 0,
+        padding: '14px 20px calc(14px + var(--safe-bottom))',
+        animation: 'fadeUpSoft 0.5s ease 0.2s both',
+      }}>
+        <div style={{ maxWidth: 520, margin: '0 auto' }}>
+
+          {isLast ? (
+            /* ─── Last slide: editorial completion CTA ─── */
+            <>
+              <div style={{
+                fontFamily: BODY,
+                fontSize: 9, fontWeight: 600,
+                color: 'var(--leaf)',
+                letterSpacing: '0.4em',
+                textTransform: 'uppercase',
+                textAlign: 'center',
+                marginBottom: 8,
+              }}>
+                ✦ End of module ✦
+              </div>
+              <p style={{
+                fontFamily: DISPLAY,
+                fontStyle: 'italic',
+                fontSize: 14,
+                color: 'rgba(255,255,255,0.7)',
+                textAlign: 'center',
+                margin: '0 0 14px',
+                lineHeight: 1.4,
+              }}>
+                You've reached the end. Take the assessment when ready.
+              </p>
+
+              {/* Cream-on-dark CTA — pops against the forest bg */}
+              <button
+                onClick={() => onStartAssessment(moduleData)}
+                onMouseDown={e => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(1px)'; }}
+                onMouseUp={e   => { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';   }}
+                onMouseLeave={e=> { (e.currentTarget as HTMLButtonElement).style.transform = 'translateY(0)';   }}
+                style={{
+                  width: '100%',
+                  padding: '18px 26px',
+                  background: 'var(--cream)',
+                  color: 'var(--forest)',
+                  border: 'none',
+                  borderRadius: 2,
+                  fontFamily: BODY,
+                  fontSize: 13, fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.24em',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 14,
+                  boxShadow: '0 8px 28px -6px rgba(0,0,0,0.5)',
+                  transition: 'transform 0.12s ease, box-shadow 0.2s ease',
+                }}
+              >
+                <span>Take Assessment</span>
+                <span style={{
+                  fontFamily: DISPLAY,
+                  fontStyle: 'italic',
+                  fontSize: 20,
+                  fontWeight: 400,
+                  textTransform: 'none',
+                  letterSpacing: 0,
+                  transform: 'translateY(-1px)',
+                }}>→</span>
+              </button>
+
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                gap: 24,
+                marginTop: 14,
+              }}>
+                <button
+                  onClick={() => goTo(current - 1)}
+                  style={{
+                    fontFamily: DISPLAY,
+                    fontStyle: 'italic',
+                    fontSize: 13,
+                    color: 'rgba(255,255,255,0.55)',
+                    background: 'none', border: 'none',
+                    padding: 0, cursor: 'pointer',
+                    textDecoration: 'underline',
+                    textDecorationStyle: 'dotted',
+                    textUnderlineOffset: '4px',
+                  }}
+                >
+                  ↩ back one slide
+                </button>
+                <button
+                  onClick={onBack}
+                  style={{
+                    fontFamily: DISPLAY,
+                    fontStyle: 'italic',
+                    fontSize: 13,
+                    color: 'rgba(255,255,255,0.55)',
+                    background: 'none', border: 'none',
+                    padding: 0, cursor: 'pointer',
+                    textDecoration: 'underline',
+                    textDecorationStyle: 'dotted',
+                    textUnderlineOffset: '4px',
+                  }}
+                >
+                  save & exit
+                </button>
+              </div>
+            </>
+          ) : (
+            /* ─── Mid-slideshow nav ─── */
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+            }}>
               <button
                 onClick={() => goTo(current - 1)}
-                style={{ flex:1, padding:'12px', background:'rgba(255,255,255,0.1)', color:'white', border:'none', borderRadius:12, fontSize:13, fontWeight:600, fontFamily:"'DM Sans', sans-serif", cursor:'pointer' }}
+                disabled={isFirst}
+                style={{
+                  flex: '0 0 38%',
+                  padding: '14px 18px',
+                  background: 'transparent',
+                  color: isFirst ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.85)',
+                  border: '1px solid rgba(255,255,255,0.16)',
+                  borderRadius: 2,
+                  fontFamily: BODY,
+                  fontSize: 11, fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.22em',
+                  cursor: isFirst ? 'default' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 10,
+                  transition: 'all 0.2s ease',
+                }}
               >
-                ‹ Prev
+                <span style={{ fontFamily: DISPLAY, fontStyle: 'italic', fontSize: 18, fontWeight: 400, letterSpacing: 0 }}>‹</span>
+                <span>Prev</span>
               </button>
+
               <button
-                onClick={onBack}
-                style={{ flex:1, padding:'12px', background:'rgba(255,255,255,0.08)', color:'rgba(255,255,255,0.6)', border:'none', borderRadius:12, fontSize:13, fontFamily:"'DM Sans', sans-serif", cursor:'pointer' }}
+                onClick={() => goTo(current + 1)}
+                style={{
+                  flex: 1,
+                  padding: '14px 18px',
+                  background: 'var(--leaf)',
+                  color: 'var(--forest)',
+                  border: 'none',
+                  borderRadius: 2,
+                  fontFamily: BODY,
+                  fontSize: 12, fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.22em',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 12,
+                  boxShadow: '0 6px 20px -6px rgba(106,173,120,0.6)',
+                  transition: 'all 0.15s ease',
+                }}
               >
-                Save & Exit
+                <span>Next</span>
+                <span style={{ fontFamily: DISPLAY, fontStyle: 'italic', fontSize: 20, fontWeight: 400, letterSpacing: 0, transform: 'translateY(-1px)' }}>→</span>
               </button>
             </div>
-          </div>
-        ) : (
-          /* Normal slide nav */
-          <div style={{ display:'flex', gap:10 }}>
-            <button
-              onClick={() => goTo(current - 1)}
-              disabled={current === 1}
-              style={{ flex:1, padding:'14px', background: current === 1 ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.12)', color: current === 1 ? 'rgba(255,255,255,0.3)' : 'white', border:'none', borderRadius:12, fontSize:14, fontWeight:600, fontFamily:"'DM Sans', sans-serif", cursor: current === 1 ? 'default' : 'pointer' }}
-            >
-              ‹ Prev
-            </button>
-            <button
-              onClick={() => goTo(current + 1)}
-              style={{ flex:2, padding:'14px', background:'var(--forest)', color:'white', border:'none', borderRadius:12, fontSize:14, fontWeight:700, fontFamily:"'DM Sans', sans-serif", cursor:'pointer' }}
-            >
-              Next ›
-            </button>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      </footer>
+
+      {/* Preload neighbour slides for instant transitions */}
+      {preloadNext && <link rel="preload" as="image" href={preloadNext}/>}
+      {preloadPrev && <link rel="preload" as="image" href={preloadPrev}/>}
     </div>
   );
 };
