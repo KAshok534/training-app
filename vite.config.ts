@@ -9,14 +9,19 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/*.png', 'icons/*.svg', 'icons/*.ico'],
       manifest: {
+        id: '/',
         name: 'AIWMR Training Academy',
         short_name: 'AIWMR',
-        description: 'AIWMR Online Certification Courses',
+        description: 'ISO-certified online certification courses in Environment, Waste Management & Sustainability from Ashrita Institute, Hyderabad.',
         theme_color: '#1a3a2a',
-        background_color: '#1a3a2a',
+        background_color: '#f7f3ec',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',
+        scope: '/',
+        lang: 'en',
+        dir: 'ltr',
+        categories: ['education', 'productivity', 'business'],
         icons: [
           {
             src: '/icons/android-chrome-192x192.png',
@@ -48,8 +53,9 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         skipWaiting: true,
         clientsClaim: true,
-        // Check for updates every time the app is opened
         navigateFallback: 'index.html',
+        // Don't intercept /privacy.html or future static legal pages
+        navigateFallbackDenylist: [/^\/privacy/, /^\/terms/, /^\/\.well-known/],
       },
     }),
   ],
