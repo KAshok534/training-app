@@ -1,8 +1,15 @@
+/**
+ * LearningScreen — editorial module list.
+ *
+ * Roman-numeral entries with course progress, latest assessment score, and
+ * expandable detail panel with Open / Retake CTAs.
+ */
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Card } from '../components/UI';
 import EnrollmentGate from '../components/EnrollmentGate';
-import Icon from '../components/Icon';
+import ParchmentBackdrop from '../components/ParchmentBackdrop';
+import { DISPLAY, BODY } from '../components/AuthShell';
+import { PrimaryButton, InlineLink } from '../components/AuthForm';
 import { useEnrollment } from '../hooks/useEnrollment';
 import { useAuth } from '../context/AuthContext';
 import type { CourseModule } from '../types';
@@ -10,19 +17,32 @@ import type { CourseModule } from '../types';
 interface Props { onNavigate: (screen: string, data?: unknown) => void; }
 
 interface AttemptSummary {
-  scorePct: number;
-  passed: boolean;
-  reward: boolean;
+  scorePct:    number;
+  passed:      boolean;
+  reward:      boolean;
   attemptedAt: string;
 }
+
+const toRoman = (n: number): string => {
+  const map: [number, string][] = [
+    [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'],
+    [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I'],
+  ];
+  let result = ''; let num = n;
+  for (const [val, sym] of map) {
+    while (num >= val) { result += sym; num -= val; }
+  }
+  return result;
+};
 
 const LearningScreen: React.FC<Props> = ({ onNavigate }) => {
   const { user } = useAuth();
   const { loading: enrollLoading, enrollment } = useEnrollment();
-  const [modules, setModules]           = useState<CourseModule[]>([]);
-  const [scores, setScores]             = useState<Record<number, AttemptSummary>>({});
-  const [dataLoading, setDataLoading]   = useState(true);
-  const [activeId, setActiveId]         = useState<number | null>(null);
+
+  const [modules, setModules]                 = useState<CourseModule[]>([]);
+  const [scores, setScores]                   = useState<Record<number, AttemptSummary>>({});
+  const [dataLoading, setDataLoading]         = useState(true);
+  const [activeId, setActiveId]               = useState<number | null>(null);
   const [attendanceCount, setAttendanceCount] = useState(0);
 
   useEffect(() => {
@@ -30,17 +50,9 @@ const LearningScreen: React.FC<Props> = ({ onNavigate }) => {
 
     const fetchData = async () => {
       const [modsRes, progressRes, attendRes, attemptsRes] = await Promise.all([
-        supabase.from('modules')
-          .select('*')
-          .eq('course_id', enrollment.courseId)
-          .order('order_index'),
-        supabase.from('user_progress')
-          .select('module_id, status')
-          .eq('user_id', user!.id),
-        supabase.from('attendance')
-          .select('id', { count: 'exact' })
-          .eq('registration_id', enrollment.registrationId),
-        // Latest attempt per module for this user
+        supabase.from('modules').select('*').eq('course_id', enrollment.courseId).order('order_index'),
+        supabase.from('user_progress').select('module_id, status').eq('user_id', user!.id),
+        supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('registration_id', enrollment.registrationId),
         supabase.from('assessment_attempts')
           .select('module_id, score_pct, passed, reward_earned, attempted_at')
           .eq('user_id', user!.id)
@@ -49,11 +61,12 @@ const LearningScreen: React.FC<Props> = ({ onNavigate }) => {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const progressMap: Record<number, string> = {};
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (progressRes.data ?? []).forEach((p: any) => { progressMap[p.module_id] = p.status; });
 
-      // Keep only the most recent attempt per module
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const scoreMap: Record<number, AttemptSummary> = {};
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (attemptsRes.data ?? []).forEach((a: any) => {
         if (!scoreMap[a.module_id]) {
           scoreMap[a.module_id] = {
@@ -79,7 +92,7 @@ const LearningScreen: React.FC<Props> = ({ onNavigate }) => {
           description:  m.description,
           videoUrl:     m.video_url,
           pdfUrl:       m.pdf_url,
-          slideCount:   m.slide_count    ?? undefined,
+          slideCount:   m.slide_count ?? undefined,
           slideBaseUrl: m.slide_base_url ?? undefined,
         };
       });
@@ -97,11 +110,16 @@ const LearningScreen: React.FC<Props> = ({ onNavigate }) => {
   const total     = modules.length;
   const progress  = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-  const statusBg = (s: CourseModule['status']) =>
-    s === 'completed' ? 'var(--leaf)' : s === 'in-progress' ? 'var(--amber)' : 'var(--sand)';
-
   const scoreColor = (pct: number) =>
     pct >= 90 ? 'var(--leaf)' : pct >= 60 ? 'var(--forest)' : 'var(--red)';
+
+  const typeLabel = (t: CourseModule['type']): string => {
+    if (t === 'video')     return 'Video';
+    if (t === 'slideshow') return 'Slideshow';
+    if (t === 'pdf')       return 'Reading';
+    if (t === 'quiz')      return 'Quiz';
+    return 'Assignment';
+  };
 
   return (
     <EnrollmentGate
@@ -109,145 +127,391 @@ const LearningScreen: React.FC<Props> = ({ onNavigate }) => {
       enrolled={!!enrollment}
       icon="📚"
       title="My Learning"
-      message="You need to enroll in a course and complete payment to access learning modules."
+      message="Enroll in a course and complete payment to access the learning modules."
       onBrowse={() => onNavigate('courses')}
     >
-      <div className="screen">
-        {/* Sticky header */}
-        <div style={{ background:'var(--forest)', padding:'20px 20px 24px', position:'sticky', top:0, zIndex:10 }}>
-          <div style={{ fontFamily:"'Playfair Display', serif", color:'white', fontSize:24, fontWeight:900 }}>My Learning</div>
-          <div style={{ color:'var(--sage)', fontSize:13, marginTop:2 }}>{enrollment?.courseTitle}</div>
-          {!dataLoading && (
-            <div style={{ marginTop:14 }}>
-              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
-                <span style={{ color:'var(--sage)', fontSize:12 }}>Module {completed} of {total} · {progress}% complete</span>
-                <span style={{ color:'var(--leaf)', fontSize:12, fontWeight:700 }}>{progress}%</span>
-              </div>
-              <div style={{ background:'rgba(255,255,255,0.15)', borderRadius:10, height:8 }}>
-                <div style={{ width:`${progress}%`, height:'100%', background:'var(--leaf)', borderRadius:10, transition:'width 0.5s ease' }}/>
-              </div>
+      <ParchmentBackdrop decorations="full">
+        <div className="screen" style={{ position: 'absolute', inset: 0 }}>
+          <div style={{
+            maxWidth: 540, margin: '0 auto',
+            padding: 'calc(28px + var(--safe-top)) 28px 40px',
+          }}>
+
+            {/* ── Editorial header ── */}
+            <div style={{
+              fontFamily: BODY,
+              fontSize: 10, fontWeight: 600,
+              color: 'var(--moss)',
+              letterSpacing: '0.34em',
+              textTransform: 'uppercase',
+              marginBottom: 14,
+              animation: 'fadeUpSoft 0.5s ease 0s both',
+            }}>
+              — My Learning
             </div>
-          )}
-        </div>
 
-        <div style={{ padding:'16px' }}>
-          {/* Mini stats */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:10, marginBottom:20 }}>
-            {[
-              [`${completed}/${total}`, 'Modules'],
-              [String(attendanceCount), 'Sessions'],
-              [enrollment?.batchTime ? enrollment.batchTime.split('–')[0].trim() : '—', 'Next Live'],
-            ].map(([v, l]) => (
-              <Card key={l} style={{ padding:'12px 10px', textAlign:'center' }}>
-                <div style={{ fontWeight:700, fontSize:15, color:'var(--forest)', lineHeight:1.2 }}>{v}</div>
-                <div style={{ fontSize:11, color:'#999', marginTop:3 }}>{l}</div>
-              </Card>
-            ))}
-          </div>
+            <h1 style={{
+              fontFamily: DISPLAY,
+              fontSize: 'clamp(34px, 9vw, 50px)',
+              color: 'var(--forest)',
+              fontWeight: 400,
+              lineHeight: 1.0,
+              letterSpacing: '-0.022em',
+              margin: 0, marginBottom: 14,
+              fontVariationSettings: '"opsz" 144, "SOFT" 80',
+              animation: 'fadeUpSoft 0.6s ease 0.1s both',
+            }}>
+              Your<br/>
+              <em style={{ fontStyle: 'italic', color: 'var(--moss)', fontWeight: 400 }}>curriculum.</em>
+            </h1>
 
-          <div style={{ fontFamily:"'Playfair Display', serif", fontSize:20, fontWeight:700, marginBottom:14 }}>Course Modules</div>
+            <p style={{
+              fontFamily: DISPLAY,
+              fontStyle: 'italic',
+              fontSize: 15,
+              color: 'var(--charcoal)',
+              opacity: 0.65,
+              margin: 0, marginBottom: 28,
+              animation: 'fadeUpSoft 0.5s ease 0.18s both',
+            }}>
+              {enrollment?.courseTitle}
+            </p>
 
-          {dataLoading ? (
-            <div style={{ textAlign:'center', padding:'40px 0', color:'#aaa' }}>Loading modules...</div>
-          ) : modules.length === 0 ? (
-            <div style={{ textAlign:'center', padding:'40px 0', color:'#aaa' }}>No modules available yet.</div>
-          ) : modules.map((m, i) => {
-            const attempt = scores[m.id];
-            return (
-              <div key={m.id}
-                onClick={() => !m.locked && setActiveId(p => p === m.id ? null : m.id)}
-                style={{ background: m.locked ? 'rgba(255,255,255,0.6)' : 'var(--white)', borderRadius:16, marginBottom:10, padding:'16px', cursor:m.locked ? 'not-allowed' : 'pointer', opacity:m.locked ? 0.65 : 1, boxShadow:activeId === m.id ? '0 4px 20px rgba(26,58,42,0.15)' : '0 2px 8px rgba(0,0,0,0.05)', border:activeId === m.id ? '2px solid var(--leaf)' : '2px solid transparent', transition:'all 0.25s', animation:`fadeUp 0.35s ease ${i * 0.06}s both` }}>
-
-                <div style={{ display:'flex', alignItems:'center', gap:14 }}>
-                  {/* Status icon */}
-                  <div style={{ width:44, height:44, borderRadius:12, background:statusBg(m.status), display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                    {m.status === 'completed'   && <Icon name="check" size={18} color="white"/>}
-                    {m.status === 'in-progress' && <Icon name={m.type === 'video' ? 'video' : m.type === 'slideshow' ? 'play' : 'file'} size={18} color="white"/>}
-                    {m.status === 'locked'      && <Icon name="lock" size={16} color="#bbb"/>}
-                  </div>
-
-                  {/* Title + meta */}
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontWeight:600, fontSize:14, color:m.locked ? '#aaa' : 'var(--charcoal)', lineHeight:1.3 }}>{m.title}</div>
-                    <div style={{ display:'flex', flexWrap:'wrap', gap:8, marginTop:4, alignItems:'center' }}>
-                      <span style={{ fontSize:12, color:'#bbb' }}>
-                        {m.type === 'video' ? '📹 Video' : m.type === 'slideshow' ? '🖼️ Slideshow' : '📄 PDF'}
-                      </span>
-                      <span style={{ fontSize:12, color:'#bbb', display:'flex', alignItems:'center', gap:2 }}>
-                        <Icon name="clock" size={11} color="#ccc"/> {m.duration}
-                      </span>
-                      {/* Score badge — shown whenever there's a past attempt */}
-                      {attempt && (
-                        <span style={{ fontSize:11, fontWeight:700, color: scoreColor(attempt.scorePct), background: attempt.scorePct >= 60 ? 'rgba(106,173,120,0.12)' : 'rgba(192,57,43,0.08)', borderRadius:6, padding:'2px 7px', border:`1px solid ${attempt.scorePct >= 60 ? 'rgba(106,173,120,0.3)' : 'rgba(192,57,43,0.2)'}` }}>
-                          {attempt.scorePct}% {attempt.passed ? '✓' : '✗'}
-                          {attempt.reward ? ' 🏆' : ''}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {!m.locked && <Icon name={activeId === m.id ? 'close' : 'play'} size={28} color={m.status === 'in-progress' ? 'var(--amber)' : 'var(--sage)'}/>}
+            {/* ── Progress rule ── */}
+            {!dataLoading && total > 0 && (
+              <div style={{ marginBottom: 28, animation: 'fadeUpSoft 0.5s ease 0.24s both' }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'baseline',
+                  marginBottom: 8,
+                }}>
+                  <span style={{
+                    fontFamily: BODY,
+                    fontSize: 10, fontWeight: 600,
+                    color: 'var(--moss)',
+                    letterSpacing: '0.22em',
+                    textTransform: 'uppercase',
+                  }}>
+                    Module {completed} of {total}
+                  </span>
+                  <span style={{
+                    fontFamily: DISPLAY,
+                    fontStyle: 'italic',
+                    fontSize: 18,
+                    color: 'var(--forest)',
+                    fontWeight: 500,
+                  }}>
+                    {progress}%
+                  </span>
                 </div>
+                <div style={{
+                  background: 'rgba(26,58,42,0.1)',
+                  height: 2,
+                  position: 'relative',
+                }}>
+                  <div style={{
+                    position: 'absolute', left: 0, top: 0,
+                    height: 2,
+                    background: 'var(--leaf)',
+                    width: `${progress}%`,
+                    transition: 'width 0.7s ease',
+                  }}/>
+                </div>
+              </div>
+            )}
 
-                {/* Expanded panel */}
-                {activeId === m.id && (
-                  <div style={{ marginTop:14, padding:14, background:'var(--mist)', borderRadius:12, animation:'fadeUp 0.2s ease' }}>
+            {/* ── Mini stats ── */}
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr 1fr',
+              rowGap: 20, columnGap: 18,
+              marginBottom: 36,
+              animation: 'fadeUpSoft 0.5s ease 0.32s both',
+            }}>
+              <Stat eyebrow="Modules"   figure={`${completed}/${total}`}/>
+              <Stat eyebrow="Sessions"  figure={String(attendanceCount)}/>
+              <Stat eyebrow="Next Live" figure={enrollment?.batchTime ? enrollment.batchTime.split('–')[0].trim() : '—'}/>
+            </div>
 
-                    {/* Last score card — only shown when attempt exists */}
+            {/* ── Section header ── */}
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              marginBottom: 12,
+              animation: 'fadeUpSoft 0.5s ease 0.4s both',
+            }}>
+              <span style={{
+                fontFamily: BODY,
+                fontSize: 10, fontWeight: 700,
+                color: 'var(--forest)',
+                letterSpacing: '0.36em',
+                textTransform: 'uppercase',
+              }}>Course Modules</span>
+              <div style={{ flex: 1, height: 1, background: 'rgba(26,58,42,0.18)' }}/>
+            </div>
+
+            {/* ── Modules list ── */}
+            {dataLoading ? (
+              <div style={{
+                fontFamily: DISPLAY, fontStyle: 'italic', fontSize: 14,
+                color: 'var(--moss)', textAlign: 'center', padding: '40px 0',
+              }}>
+                Loading your modules…
+              </div>
+            ) : modules.length === 0 ? (
+              <div style={{
+                fontFamily: DISPLAY, fontStyle: 'italic', fontSize: 15,
+                color: 'var(--charcoal)', opacity: 0.6, textAlign: 'center', padding: '40px 0',
+              }}>
+                No modules have been published for this course yet.
+              </div>
+            ) : modules.map((m, i) => {
+              const attempt = scores[m.id];
+              const isOpen  = activeId === m.id;
+              const isLocked = m.locked;
+              const roman    = toRoman(i + 1).toLowerCase();
+
+              return (
+                <div
+                  key={m.id}
+                  onClick={() => !isLocked && setActiveId(p => p === m.id ? null : m.id)}
+                  style={{
+                    padding: '18px 0',
+                    borderTop: i === 0 ? '1px solid rgba(26,58,42,0.18)' : 'none',
+                    borderBottom: '1px solid rgba(26,58,42,0.18)',
+                    cursor: isLocked ? 'default' : 'pointer',
+                    opacity: isLocked ? 0.55 : 1,
+                    animation: `fadeUpSoft 0.5s ease ${0.45 + i * 0.04}s both`,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+                    {/* Roman numeral */}
+                    <span style={{
+                      fontFamily: DISPLAY, fontStyle: 'italic', fontSize: 17,
+                      color: m.status === 'completed' ? 'var(--leaf)' : 'var(--moss)',
+                      minWidth: 30, lineHeight: 1.4, opacity: 0.9, flexShrink: 0,
+                    }}>{roman}.</span>
+
+                    {/* Body */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontFamily: DISPLAY,
+                        fontSize: 16,
+                        color: 'var(--forest)',
+                        fontWeight: 400,
+                        lineHeight: 1.3,
+                        marginBottom: 6,
+                      }}>
+                        {m.title}
+                      </div>
+                      <div style={{
+                        fontFamily: BODY,
+                        fontSize: 10, fontWeight: 600,
+                        color: 'var(--moss)',
+                        letterSpacing: '0.22em',
+                        textTransform: 'uppercase',
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 10,
+                        alignItems: 'center',
+                      }}>
+                        <span>{typeLabel(m.type)}</span>
+                        <span style={{ opacity: 0.4 }}>·</span>
+                        <span>{m.duration}</span>
+                        {isLocked && <>
+                          <span style={{ opacity: 0.4 }}>·</span>
+                          <span style={{ color: '#999' }}>Locked</span>
+                        </>}
+                        {m.status === 'completed' && <>
+                          <span style={{ opacity: 0.4 }}>·</span>
+                          <span style={{ color: 'var(--leaf)' }}>✓ Completed</span>
+                        </>}
+                      </div>
+                    </div>
+
+                    {/* Score badge */}
                     {attempt && (
-                      <div style={{ background:'white', borderRadius:10, padding:'12px 14px', marginBottom:12, border:`1px solid ${attempt.passed ? 'rgba(106,173,120,0.3)' : 'rgba(192,57,43,0.2)'}` }}>
-                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                          <div>
-                            <div style={{ fontSize:11, color:'#999', fontFamily:"'DM Sans', sans-serif", marginBottom:2 }}>Last Assessment Score</div>
-                            <div style={{ fontSize:22, fontWeight:900, color:scoreColor(attempt.scorePct), fontFamily:"'DM Sans', sans-serif", lineHeight:1 }}>
-                              {attempt.scorePct}%
-                              <span style={{ fontSize:13, fontWeight:400, color:'#999', marginLeft:6 }}>
-                                {attempt.passed ? '— Passed ✅' : '— Failed ❌'}
-                              </span>
-                            </div>
-                            {attempt.reward && (
-                              <div style={{ fontSize:12, color:'var(--forest)', fontWeight:600, marginTop:4 }}>
-                                🏆 Free Internship / Project Report earned!
-                              </div>
-                            )}
-                          </div>
-                          {/* Circular score ring */}
-                          <div style={{ width:52, height:52, borderRadius:'50%', background: attempt.passed ? 'var(--forest)' : 'var(--red)', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                            <span style={{ color:'white', fontSize:14, fontWeight:900, fontFamily:"'DM Sans', sans-serif" }}>{attempt.scorePct}%</span>
-                          </div>
+                      <div style={{
+                        textAlign: 'right',
+                        flexShrink: 0,
+                      }}>
+                        <div style={{
+                          fontFamily: DISPLAY,
+                          fontStyle: 'italic',
+                          fontSize: 18,
+                          color: scoreColor(attempt.scorePct),
+                          fontWeight: 500,
+                          letterSpacing: '-0.015em',
+                        }}>
+                          {attempt.scorePct}%
+                        </div>
+                        <div style={{
+                          fontFamily: BODY,
+                          fontSize: 9, fontWeight: 600,
+                          color: attempt.passed ? 'var(--leaf)' : 'var(--red)',
+                          letterSpacing: '0.18em',
+                          textTransform: 'uppercase',
+                          marginTop: 2,
+                        }}>
+                          {attempt.passed ? 'Passed' : 'Failed'}
+                          {attempt.reward && ' · 🏆'}
                         </div>
                       </div>
                     )}
 
-                    <div style={{ fontSize:13, color:'#555', lineHeight:1.7, marginBottom:12 }}>
-                      {m.description ?? 'This module covers core concepts with real-world case studies and practical examples.'}
-                    </div>
-
-                    <div style={{ display:'flex', gap:8 }}>
-                      <button
-                        onClick={e => { e.stopPropagation(); onNavigate('moduleViewer', m as unknown); }}
-                        style={{ flex:1, padding:'10px', background:'var(--forest)', color:'white', border:'none', borderRadius:10, fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'DM Sans', sans-serif" }}
-                      >
-                        {m.type === 'slideshow' ? '🖼️ Open Slideshow' : m.videoUrl || m.pdfUrl ? '▶ Open Module' : '▶ Start Module'}
-                      </button>
-                      {/* Retake shortcut for failed attempts */}
-                      {attempt && !attempt.passed && (
-                        <button
-                          onClick={e => { e.stopPropagation(); onNavigate('assessment', m as unknown); }}
-                          style={{ padding:'10px 14px', background:'rgba(192,57,43,0.1)', color:'var(--red)', border:'1px solid rgba(192,57,43,0.3)', borderRadius:10, fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'DM Sans', sans-serif", whiteSpace:'nowrap' }}
-                        >
-                          🔄 Retake
-                        </button>
-                      )}
-                    </div>
+                    {/* Open indicator */}
+                    {!isLocked && !attempt && (
+                      <span style={{
+                        fontFamily: DISPLAY, fontStyle: 'italic', fontSize: 20,
+                        color: 'var(--moss)', flexShrink: 0, lineHeight: 1.2,
+                        transform: isOpen ? 'rotate(90deg)' : 'none',
+                        transition: 'transform 0.25s ease',
+                      }}>{isOpen ? '×' : '→'}</span>
+                    )}
                   </div>
-                )}
-              </div>
-            );
-          })}
+
+                  {/* Expanded panel */}
+                  {isOpen && (
+                    <div style={{
+                      marginTop: 18,
+                      paddingTop: 16,
+                      borderTop: '1px dashed rgba(26,58,42,0.18)',
+                      animation: 'fadeUpSoft 0.3s ease both',
+                    }}>
+                      {/* Last score panel — only if attempt exists */}
+                      {attempt && (
+                        <div style={{
+                          position: 'relative',
+                          padding: '16px 18px 14px',
+                          marginBottom: 18,
+                          background: attempt.passed ? 'rgba(106,173,120,0.06)' : 'rgba(192,57,43,0.04)',
+                          borderLeft: `2px solid ${attempt.passed ? 'var(--leaf)' : 'var(--red)'}`,
+                        }}>
+                          <div style={{
+                            fontFamily: BODY,
+                            fontSize: 9, fontWeight: 700,
+                            color: attempt.passed ? 'var(--leaf)' : 'var(--red)',
+                            letterSpacing: '0.36em',
+                            textTransform: 'uppercase',
+                            marginBottom: 8,
+                          }}>
+                            Last attempt
+                          </div>
+                          <div style={{
+                            display: 'flex',
+                            alignItems: 'baseline',
+                            justifyContent: 'space-between',
+                            gap: 12,
+                          }}>
+                            <div>
+                              <span style={{
+                                fontFamily: DISPLAY,
+                                fontStyle: 'italic',
+                                fontSize: 28,
+                                color: scoreColor(attempt.scorePct),
+                                fontWeight: 500,
+                                letterSpacing: '-0.02em',
+                              }}>
+                                {attempt.scorePct}%
+                              </span>
+                              <span style={{
+                                fontFamily: DISPLAY,
+                                fontStyle: 'italic',
+                                fontSize: 14,
+                                color: 'var(--charcoal)',
+                                opacity: 0.65,
+                                marginLeft: 10,
+                              }}>
+                                — {attempt.passed ? 'Passed' : 'Did not pass'}
+                              </span>
+                            </div>
+                          </div>
+                          {attempt.reward && (
+                            <div style={{
+                              fontFamily: DISPLAY,
+                              fontStyle: 'italic',
+                              fontSize: 13,
+                              color: 'var(--gold)',
+                              marginTop: 6,
+                            }}>
+                              🏆 Free internship / project report earned.
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Description */}
+                      {m.description && (
+                        <p style={{
+                          fontFamily: DISPLAY,
+                          fontStyle: 'italic',
+                          fontSize: 14,
+                          color: 'var(--charcoal)',
+                          opacity: 0.72,
+                          lineHeight: 1.55,
+                          margin: '0 0 18px',
+                        }}>
+                          {m.description}
+                        </p>
+                      )}
+
+                      {/* CTAs */}
+                      <div onClick={e => e.stopPropagation()}>
+                        <PrimaryButton
+                          onClick={() => onNavigate('moduleViewer', m as unknown)}
+                          label={
+                            m.type === 'slideshow' ? 'Open Slideshow' :
+                            m.videoUrl || m.pdfUrl ? 'Open Module'    :
+                                                     'Start Module'
+                          }
+                          arrow="→"
+                        />
+                        {attempt && !attempt.passed && (
+                          <div style={{ textAlign: 'center', marginTop: 16 }}>
+                            <InlineLink onClick={() => onNavigate('assessment', m as unknown)}>
+                              <span style={{ fontFamily: DISPLAY, fontStyle: 'italic' }}>↻</span>{' '}retake assessment
+                            </InlineLink>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      </ParchmentBackdrop>
     </EnrollmentGate>
   );
 };
+
+// ─── Stat sub-component ──────────────────────────────────────────────────────
+
+const Stat: React.FC<{ eyebrow: string; figure: string }> = ({ eyebrow, figure }) => (
+  <div style={{
+    paddingTop: 12,
+    borderTop: '1px solid rgba(26,58,42,0.2)',
+  }}>
+    <div style={{
+      fontFamily: BODY,
+      fontSize: 9, fontWeight: 700,
+      color: 'var(--moss)',
+      letterSpacing: '0.3em',
+      textTransform: 'uppercase',
+      marginBottom: 6,
+    }}>{eyebrow}</div>
+    <div style={{
+      fontFamily: DISPLAY,
+      fontSize: 20,
+      fontWeight: 400,
+      color: 'var(--forest)',
+      lineHeight: 1.1,
+      letterSpacing: '-0.015em',
+    }}>{figure}</div>
+  </div>
+);
+
 export default LearningScreen;

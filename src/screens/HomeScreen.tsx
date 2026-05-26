@@ -1,18 +1,31 @@
+/**
+ * HomeScreen — editorial dashboard with three states.
+ *
+ * 1. Admin → stats + recent registrations + quick actions
+ * 2. Enrolled student → active course + performance shortcut + stats + explore
+ * 3. Not-enrolled student → "Begin your journey" CTA + featured courses
+ */
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { Badge, ProgressBar, Card, Spinner } from '../components/UI';
+import ParchmentBackdrop from '../components/ParchmentBackdrop';
+import { DISPLAY, BODY } from '../components/AuthShell';
+import { PrimaryButton } from '../components/AuthForm';
 import Icon from '../components/Icon';
 import { useAuth } from '../context/AuthContext';
 import type { Course } from '../types';
 
-interface Props { onNavigate:(screen:string, data?:unknown)=>void; }
+interface Props { onNavigate: (screen: string, data?: unknown) => void; }
 
 function getGreeting(): string {
   const h = new Date().getHours();
-  if (h < 12) return 'Good Morning 🌅';
-  if (h < 17) return 'Good Afternoon ☀️';
-  if (h < 21) return 'Good Evening 🌇';
-  return 'Good Night 🌙';
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  if (h < 21) return 'Good evening';
+  return 'Good night';
+}
+
+function firstName(full: string): string {
+  return full.split(' ')[0] || full;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -27,7 +40,132 @@ function mapCourse(row: any): Course {
   };
 }
 
-// ─── Admin Dashboard ──────────────────────────────────────────────────────────
+const toRoman = (n: number): string => {
+  const map: [number, string][] = [
+    [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'],
+    [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I'],
+  ];
+  let result = ''; let num = n;
+  for (const [val, sym] of map) {
+    while (num >= val) { result += sym; num -= val; }
+  }
+  return result;
+};
+
+// ─── Shared editorial top bar ────────────────────────────────────────────────
+
+interface TopBarProps {
+  eyebrow: string;
+  greeting: string;
+  name: string;
+  onSignOut: () => void;
+}
+const TopBar: React.FC<TopBarProps> = ({ eyebrow, greeting, name, onSignOut }) => (
+  <div style={{
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 32,
+    animation: 'fadeUpSoft 0.5s ease 0s both',
+  }}>
+    <div>
+      <div style={{
+        fontFamily: BODY,
+        fontSize: 10, fontWeight: 600,
+        color: 'var(--moss)',
+        letterSpacing: '0.34em',
+        textTransform: 'uppercase',
+        marginBottom: 8,
+      }}>
+        — {eyebrow}
+      </div>
+      <div style={{
+        fontFamily: DISPLAY,
+        fontStyle: 'italic',
+        fontSize: 17,
+        color: 'var(--moss)',
+        opacity: 0.85,
+        lineHeight: 1.3,
+        marginBottom: 4,
+      }}>
+        {greeting},
+      </div>
+      <div style={{
+        fontFamily: DISPLAY,
+        fontSize: 'clamp(34px, 9vw, 48px)',
+        color: 'var(--forest)',
+        fontWeight: 400,
+        lineHeight: 1.0,
+        letterSpacing: '-0.022em',
+      }}>
+        {firstName(name)}<span style={{ color: 'var(--moss)', fontStyle: 'italic' }}>.</span>
+      </div>
+    </div>
+    <button
+      onClick={onSignOut}
+      style={{
+        fontFamily: DISPLAY,
+        fontStyle: 'italic',
+        fontSize: 13,
+        color: 'var(--moss)',
+        background: 'rgba(255,255,255,0.5)',
+        border: '1px solid rgba(26,58,42,0.12)',
+        padding: '7px 12px',
+        borderRadius: 2,
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        flexShrink: 0,
+      }}
+    >
+      <Icon name="logout" size={13} color="var(--moss)"/>
+      <span>sign out</span>
+    </button>
+  </div>
+);
+
+// ─── Decorative rule ─────────────────────────────────────────────────────────
+const Rule: React.FC = () => (
+  <div style={{
+    display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28,
+    animation: 'fadeUpSoft 0.5s ease 0.3s both',
+  }}>
+    <div style={{ flex: 1, height: 1, background: 'rgba(26,58,42,0.18)' }}/>
+    <span style={{ fontFamily: DISPLAY, fontSize: 13, color: 'var(--moss)', opacity: 0.7 }}>✦</span>
+    <div style={{ flex: 1, height: 1, background: 'rgba(26,58,42,0.18)' }}/>
+  </div>
+);
+
+// ─── Section header ──────────────────────────────────────────────────────────
+const SectionHeader: React.FC<{ text: string; action?: { label: string; onTap: () => void } }> = ({ text, action }) => (
+  <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 18 }}>
+    <span style={{
+      fontFamily: BODY,
+      fontSize: 10, fontWeight: 700,
+      color: 'var(--forest)',
+      letterSpacing: '0.36em',
+      textTransform: 'uppercase',
+    }}>{text}</span>
+    <div style={{ flex: 1, height: 1, background: 'rgba(26,58,42,0.18)' }}/>
+    {action && (
+      <button onClick={action.onTap} style={{
+        background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+        fontFamily: DISPLAY,
+        fontStyle: 'italic',
+        fontSize: 13,
+        color: 'var(--moss)',
+        textDecoration: 'underline',
+        textDecorationStyle: 'dotted',
+        textUnderlineOffset: '3px',
+      }}>{action.label}</button>
+    )}
+  </div>
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ADMIN HOME
+// ═══════════════════════════════════════════════════════════════════════════
 
 interface AdminStats {
   totalStudents: number;
@@ -36,14 +174,14 @@ interface AdminStats {
   recentRegistrations: { name: string; course: string; status: string; date: string }[];
 }
 
-const AdminHome: React.FC<{ onNavigate:(s:string)=>void; signOut:()=>void }> = ({ onNavigate, signOut }) => {
+const AdminHome: React.FC<{ onNavigate: (s: string) => void; signOut: () => void }> = ({ onNavigate, signOut }) => {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetch = async () => {
       const [studentsRes, regsRes] = await Promise.all([
-        supabase.from('profiles').select('id', { count: 'exact' }).eq('role', 'trainee'),
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'trainee'),
         supabase.from('registrations')
           .select('payment_status, created_at, profiles(name), courses(title, fee_inr)')
           .order('created_at', { ascending: false })
@@ -56,14 +194,14 @@ const AdminHome: React.FC<{ onNavigate:(s:string)=>void; signOut:()=>void }> = (
       const revenue = paid.reduce((sum, r) => sum + (r.courses?.fee_inr ?? 0), 0);
 
       setStats({
-        totalStudents:        studentsRes.count ?? 0,
-        paidEnrollments:      paid.length,
-        totalRevenue:         revenue,
-        recentRegistrations:  regs.map(r => ({
+        totalStudents: studentsRes.count ?? 0,
+        paidEnrollments: paid.length,
+        totalRevenue: revenue,
+        recentRegistrations: regs.map(r => ({
           name:   r.profiles?.name ?? '—',
-          course: r.courses?.title  ?? '—',
+          course: r.courses?.title ?? '—',
           status: r.payment_status,
-          date:   new Date(r.created_at).toLocaleDateString('en-IN', { day:'numeric', month:'short' }),
+          date:   new Date(r.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }),
         })),
       });
       setLoading(false);
@@ -72,155 +210,206 @@ const AdminHome: React.FC<{ onNavigate:(s:string)=>void; signOut:()=>void }> = (
   }, []);
 
   return (
-    <div className="screen">
-      {/* Header */}
-      <div style={{ background:'var(--forest)', padding:'24px 20px 72px', position:'relative', overflow:'hidden' }}>
-        <div style={{ position:'absolute', top:-50, right:-50, width:200, height:200, borderRadius:'50%', background:'rgba(106,173,120,0.08)' }}/>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', position:'relative' }}>
-          <div>
-            <div style={{ color:'var(--sage)', fontSize:13 }}>{getGreeting()}</div>
-            <div style={{ fontFamily:"'Playfair Display', serif", color:'white', fontSize:22, fontWeight:700, marginTop:4 }}>Admin Dashboard</div>
-            <div style={{ color:'var(--sage)', fontSize:12, marginTop:2 }}>AIWMR Training Academy</div>
-          </div>
-          <div style={{ display:'flex', gap:10, alignItems:'center' }}>
-            <button onClick={signOut} style={{ background:'rgba(255,255,255,0.1)', border:'none', borderRadius:10, padding:'7px 10px', cursor:'pointer' }}>
-              <Icon name="logout" size={18} color="var(--sage)"/>
-            </button>
-          </div>
+    <ParchmentBackdrop decorations="full">
+      <div className="screen" style={{ position: 'absolute', inset: 0 }}>
+        <div style={{
+          maxWidth: 540, margin: '0 auto',
+          padding: 'calc(28px + var(--safe-top)) 28px 40px',
+        }}>
+          <TopBar eyebrow="Admin Dashboard" greeting="Welcome back" name="AIWMR" onSignOut={signOut}/>
+
+          <p style={{
+            fontFamily: DISPLAY,
+            fontStyle: 'italic',
+            fontSize: 15,
+            color: 'var(--charcoal)',
+            opacity: 0.65,
+            margin: '0 0 28px',
+            animation: 'fadeUpSoft 0.5s ease 0.2s both',
+          }}>
+            Manage students, sessions, certificates and rewards.
+          </p>
+
+          <Rule/>
+
+          {loading ? (
+            <div style={{
+              fontFamily: DISPLAY, fontStyle: 'italic', fontSize: 14,
+              color: 'var(--moss)', textAlign: 'center', padding: '40px 0',
+            }}>
+              Loading academy statistics…
+            </div>
+          ) : (
+            <>
+              {/* Stats block 2×2 */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                rowGap: 22, columnGap: 24,
+                marginBottom: 40,
+                animation: 'fadeUpSoft 0.6s ease 0.35s both',
+              }}>
+                <StatBlock eyebrow="Trainees" figure={String(stats?.totalStudents ?? 0)} caption="registered to date"/>
+                <StatBlock eyebrow="Enrolled" figure={String(stats?.paidEnrollments ?? 0)} caption="paid this period"/>
+                <StatBlock eyebrow="Revenue"  figure={`₹${(stats?.totalRevenue ?? 0).toLocaleString()}`} caption="from confirmed payments"/>
+                <StatBlock eyebrow="Programs" figure="15" caption="ISO-certified courses"/>
+              </div>
+
+              {/* Recent registrations */}
+              <section style={{ marginBottom: 40, animation: 'fadeUpSoft 0.6s ease 0.45s both' }}>
+                <SectionHeader text="Recent Registrations"/>
+                {(stats?.recentRegistrations.length ?? 0) === 0 ? (
+                  <p style={{
+                    fontFamily: DISPLAY, fontStyle: 'italic', fontSize: 14,
+                    color: 'var(--charcoal)', opacity: 0.5, margin: 0,
+                  }}>No registrations yet.</p>
+                ) : stats?.recentRegistrations.map((r, i, arr) => (
+                  <div key={i} style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 16,
+                    padding: '12px 0',
+                    borderTop: i === 0 ? '1px solid rgba(26,58,42,0.15)' : 'none',
+                    borderBottom: '1px solid rgba(26,58,42,0.15)',
+                  }}>
+                    <span style={{
+                      fontFamily: DISPLAY, fontStyle: 'italic', fontSize: 14,
+                      color: 'var(--moss)', minWidth: 28, opacity: 0.85,
+                    }}>{toRoman(i + 1).toLowerCase()}.</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontFamily: DISPLAY, fontSize: 15, color: 'var(--charcoal)', lineHeight: 1.3 }}>
+                        {r.name}
+                      </div>
+                      <div style={{
+                        fontFamily: BODY, fontSize: 10, color: 'var(--moss)',
+                        letterSpacing: '0.18em', textTransform: 'uppercase',
+                        marginTop: 4, opacity: 0.8,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
+                        {r.course}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{
+                        fontFamily: DISPLAY, fontStyle: 'italic', fontSize: 13,
+                        color: r.status === 'paid' ? 'var(--leaf)' : 'var(--amber)',
+                        textTransform: 'lowercase',
+                      }}>{r.status}</div>
+                      <div style={{
+                        fontFamily: BODY, fontSize: 10, color: 'var(--moss)',
+                        letterSpacing: '0.18em', textTransform: 'uppercase', marginTop: 3, opacity: 0.7,
+                      }}>{r.date}</div>
+                    </div>
+                    {/* suppress unused arr lint */}
+                    {arr.length}
+                  </div>
+                ))}
+              </section>
+
+              {/* Quick actions */}
+              <section style={{ animation: 'fadeUpSoft 0.6s ease 0.55s both' }}>
+                <SectionHeader text="Quick Actions"/>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: 12,
+                }}>
+                  {([
+                    ['All Courses', 'courses'],
+                    ['Sessions',    'adminSession'],
+                    ['Students',    'adminStudents'],
+                    ['Rewards',     'adminRewards'],
+                  ] as [string, string][]).map(([label, route]) => (
+                    <button key={route} onClick={() => onNavigate(route)}
+                      style={{
+                        padding: '16px 14px',
+                        background: 'rgba(255,255,255,0.5)',
+                        border: '1px solid rgba(26,58,42,0.15)',
+                        borderRadius: 2,
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        transition: 'border-color 0.2s ease',
+                      }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--forest)'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(26,58,42,0.15)'; }}>
+                      <div style={{
+                        fontFamily: DISPLAY,
+                        fontStyle: 'italic',
+                        fontSize: 17,
+                        color: 'var(--forest)',
+                        fontWeight: 500,
+                      }}>{label}</div>
+                      <div style={{
+                        fontFamily: BODY,
+                        fontSize: 9, fontWeight: 600,
+                        color: 'var(--moss)',
+                        letterSpacing: '0.28em',
+                        textTransform: 'uppercase',
+                        marginTop: 4,
+                        opacity: 0.7,
+                      }}>
+                        open →
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            </>
+          )}
         </div>
       </div>
-
-      <div style={{ margin:'-52px 16px 0', position:'relative', zIndex:2 }}>
-        {loading ? (
-          <Card style={{ padding:40, display:'flex', justifyContent:'center' }}>
-            <Spinner size={28} color="var(--forest)"/>
-          </Card>
-        ) : (
-          <>
-            {/* Stats grid */}
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginBottom:16, animation:'fadeUp 0.4s ease' }}>
-              {[
-                ['👩‍🎓', 'Total Students',    String(stats?.totalStudents ?? 0),    'var(--pine)'],
-                ['✅',   'Paid Enrollments', String(stats?.paidEnrollments ?? 0),  'var(--leaf)'],
-                ['💰',   'Total Revenue',    `₹${(stats?.totalRevenue ?? 0).toLocaleString()}`, 'var(--earth)'],
-                ['📚',   'Active Courses',   '15',                                  'var(--moss)'],
-              ].map(([ic, label, val, color]) => (
-                <Card key={label} style={{ padding:16, textAlign:'center', boxShadow:'0 4px 16px rgba(26,58,42,0.1)' }}>
-                  <div style={{ fontSize:26, marginBottom:6 }}>{ic}</div>
-                  <div style={{ fontWeight:700, fontSize:20, color }}>{val}</div>
-                  <div style={{ fontSize:11, color:'#999', marginTop:2 }}>{label}</div>
-                </Card>
-              ))}
-            </div>
-
-            {/* Recent registrations */}
-            <Card style={{ padding:18, marginBottom:16, animation:'fadeUp 0.4s ease 0.06s both' }}>
-              <div style={{ fontWeight:700, fontSize:15, marginBottom:14 }}>Recent Registrations</div>
-              {(stats?.recentRegistrations.length ?? 0) === 0 ? (
-                <div style={{ fontSize:13, color:'#aaa', textAlign:'center', padding:'12px 0' }}>No registrations yet</div>
-              ) : stats?.recentRegistrations.map((r, i) => (
-                <div key={i} style={{ display:'flex', alignItems:'center', gap:12, paddingBottom:12, marginBottom:12, borderBottom: i < (stats.recentRegistrations.length-1) ? '1px solid var(--sand)' : 'none' }}>
-                  <div style={{ width:36, height:36, borderRadius:10, background:'var(--forest)', display:'flex', alignItems:'center', justifyContent:'center', color:'white', fontSize:13, fontWeight:700, flexShrink:0 }}>
-                    {r.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontWeight:600, fontSize:13 }}>{r.name}</div>
-                    <div style={{ fontSize:11, color:'#aaa', marginTop:2, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{r.course}</div>
-                  </div>
-                  <div style={{ textAlign:'right', flexShrink:0 }}>
-                    <div style={{ fontSize:11, fontWeight:700, color: r.status === 'paid' ? 'var(--leaf)' : 'var(--amber)', textTransform:'capitalize' }}>{r.status}</div>
-                    <div style={{ fontSize:11, color:'#aaa', marginTop:2 }}>{r.date}</div>
-                  </div>
-                </div>
-              ))}
-            </Card>
-
-            {/* Quick actions */}
-            <Card style={{ padding:18, animation:'fadeUp 0.4s ease 0.1s both' }}>
-              <div style={{ fontWeight:700, fontSize:15, marginBottom:14 }}>Quick Actions</div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-                {[
-                  ['📋', 'All Courses',    'courses'],
-                  ['🔐', 'Session QR',    'adminSession'],
-                  ['👥', 'Students',      'adminStudents'],
-                  ['🏆', 'Rewards',       'adminRewards'],
-                ].map(([ic, label, screen]) => (
-                  <button key={label} onClick={() => onNavigate(screen)}
-                    style={{ padding:'14px 10px', background:'var(--mist)', border:'1px solid var(--sand)', borderRadius:12, cursor:'pointer', fontSize:13, fontWeight:600, color:'var(--charcoal)', fontFamily:"'DM Sans', sans-serif", display:'flex', flexDirection:'column', alignItems:'center', gap:6 }}>
-                    <span style={{ fontSize:22 }}>{ic}</span>{label}
-                  </button>
-                ))}
-              </div>
-            </Card>
-          </>
-        )}
-      </div>
-    </div>
+    </ParchmentBackdrop>
   );
 };
 
-// ─── Student Not Enrolled ─────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// STUDENT — NOT ENROLLED
+// ═══════════════════════════════════════════════════════════════════════════
 
-const NotEnrolledHome: React.FC<{ name: string; courses: Course[]; onNavigate:(s:string,d?:unknown)=>void; signOut:()=>void }> = ({ name, courses, onNavigate, signOut }) => (
-  <div className="screen">
-    <div style={{ background:'var(--forest)', padding:'24px 20px 72px', position:'relative', overflow:'hidden' }}>
-      <div style={{ position:'absolute', top:-50, right:-50, width:200, height:200, borderRadius:'50%', background:'rgba(106,173,120,0.08)' }}/>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', position:'relative' }}>
-        <div>
-          <div style={{ color:'var(--sage)', fontSize:13 }}>{getGreeting()}</div>
-          <div style={{ fontFamily:"'Playfair Display', serif", color:'white', fontSize:22, fontWeight:700, marginTop:4 }}>{name}</div>
+const NotEnrolledHome: React.FC<{ name: string; courses: Course[]; onNavigate: (s: string, d?: unknown) => void; signOut: () => void }> = ({
+  name, courses, onNavigate, signOut,
+}) => (
+  <ParchmentBackdrop decorations="full">
+    <div className="screen" style={{ position: 'absolute', inset: 0 }}>
+      <div style={{
+        maxWidth: 540, margin: '0 auto',
+        padding: 'calc(28px + var(--safe-top)) 28px 40px',
+      }}>
+        <TopBar eyebrow={getGreeting()} greeting="Welcome" name={name || 'Friend'} onSignOut={signOut}/>
+
+        <p style={{
+          fontFamily: DISPLAY,
+          fontStyle: 'italic',
+          fontSize: 17,
+          color: 'var(--charcoal)',
+          opacity: 0.72,
+          lineHeight: 1.5,
+          margin: '0 0 28px',
+          maxWidth: 380,
+          animation: 'fadeUpSoft 0.5s ease 0.2s both',
+        }}>
+          You haven't enrolled in a program yet. Explore our ISO-certified courses to begin.
+        </p>
+
+        <div style={{ marginBottom: 32, animation: 'fadeUpSoft 0.6s ease 0.3s both' }}>
+          <PrimaryButton onClick={() => onNavigate('courses')} label="Browse Courses" arrow="→"/>
         </div>
-        <div style={{ display:'flex', gap:10, alignItems:'center' }}>
-          <div style={{ position:'relative', cursor:'pointer' }}>
-            <Icon name="bell" size={22} color="var(--sage)"/>
-          </div>
-          <button onClick={signOut} style={{ background:'rgba(255,255,255,0.1)', border:'none', borderRadius:10, padding:'7px 10px', cursor:'pointer' }}>
-            <Icon name="logout" size={18} color="var(--sage)"/>
-          </button>
-        </div>
+
+        <Rule/>
+
+        <SectionHeader text="Featured Programs" action={{ label: 'see all', onTap: () => onNavigate('courses') }}/>
+
+        {courses.slice(0, 2).map((c, i) => (
+          <CompactCourseRow key={c.id} course={c} index={i + 1} isFirst={i === 0} onTap={() => onNavigate('courseDetail', c)}/>
+        ))}
       </div>
     </div>
-
-    <div style={{ margin:'-52px 16px 0', position:'relative', zIndex:2, animation:'fadeUp 0.4s ease' }}>
-      {/* Not enrolled card */}
-      <Card style={{ padding:24, textAlign:'center', boxShadow:'0 8px 32px rgba(26,58,42,0.18)', marginBottom:16 }}>
-        <div style={{ fontSize:52, marginBottom:12 }}>🎓</div>
-        <div style={{ fontFamily:"'Playfair Display', serif", fontSize:20, fontWeight:700, marginBottom:8 }}>Start Your Learning Journey</div>
-        <div style={{ fontSize:14, color:'#888', lineHeight:1.6, marginBottom:20 }}>
-          You haven't enrolled in any course yet. Explore our ISO certified programs and get started today.
-        </div>
-        <button onClick={() => onNavigate('courses')}
-          style={{ width:'100%', padding:'14px', background:'var(--forest)', color:'white', border:'none', borderRadius:12, fontSize:15, fontWeight:700, cursor:'pointer', fontFamily:"'DM Sans', sans-serif" }}>
-          Browse Courses →
-        </button>
-      </Card>
-
-      {/* Course previews */}
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
-        <div style={{ fontFamily:"'Playfair Display', serif", fontSize:20, fontWeight:700 }}>Explore Courses</div>
-        <span onClick={() => onNavigate('courses')} style={{ fontSize:13, color:'var(--pine)', fontWeight:700, cursor:'pointer' }}>See all →</span>
-      </div>
-      {courses.slice(0, 2).map(c => (
-        <Card key={c.id} onClick={() => onNavigate('courseDetail', c)} style={{ marginBottom:12, display:'flex', alignItems:'center', gap:14, padding:16 }}>
-          <div style={{ width:52, height:52, borderRadius:14, background:`${c.color}18`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:26, flexShrink:0 }}>{c.icon}</div>
-          <div style={{ flex:1, minWidth:0 }}>
-            <div style={{ fontWeight:700, fontSize:14, marginBottom:4, lineHeight:1.3 }}>{c.title}</div>
-            <div style={{ display:'flex', gap:8 }}>
-              <Badge text={c.mode} color={c.color} bg={`${c.color}15`}/>
-              <span style={{ fontSize:12, color:'#888', display:'flex', alignItems:'center', gap:3 }}><Icon name="clock" size={12} color="#bbb"/> {c.hours}</span>
-            </div>
-          </div>
-          <div style={{ textAlign:'right', flexShrink:0 }}>
-            <div style={{ fontWeight:700, color:'var(--forest)', fontSize:15 }}>₹{c.fee.toLocaleString()}</div>
-            <div style={{ fontSize:11, color:'#999', marginTop:2 }}>{c.seats - c.filled} seats</div>
-          </div>
-        </Card>
-      ))}
-    </div>
-  </div>
+  </ParchmentBackdrop>
 );
 
-// ─── Student Enrolled ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════
+// STUDENT — ENROLLED
+// ═══════════════════════════════════════════════════════════════════════════
 
 interface EnrollmentData {
   course: Course;
@@ -232,137 +421,357 @@ interface EnrollmentData {
   batchTime: string;
 }
 
-const EnrolledHome: React.FC<{ name:string; enrollment: EnrollmentData; courses: Course[]; onNavigate:(s:string,d?:unknown)=>void; signOut:()=>void }> = ({ name, enrollment, courses, onNavigate, signOut }) => {
+const EnrolledHome: React.FC<{
+  name: string;
+  enrollment: EnrollmentData;
+  courses: Course[];
+  onNavigate: (s: string, d?: unknown) => void;
+  signOut: () => void;
+}> = ({ name, enrollment, courses, onNavigate, signOut }) => {
   const { course, completedModules, totalModules, attendanceCount, batchTime } = enrollment;
   const progress = totalModules > 0 ? Math.round((completedModules / totalModules) * 100) : 0;
 
   return (
-    <div className="screen">
-      <div style={{ background:'var(--forest)', padding:'24px 20px 72px', position:'relative', overflow:'hidden' }}>
-        <div style={{ position:'absolute', top:-50, right:-50, width:200, height:200, borderRadius:'50%', background:'rgba(106,173,120,0.08)' }}/>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', position:'relative' }}>
-          <div>
-            <div style={{ color:'var(--sage)', fontSize:13 }}>{getGreeting()}</div>
-            <div style={{ fontFamily:"'Playfair Display', serif", color:'white', fontSize:22, fontWeight:700, marginTop:4 }}>{name}</div>
-          </div>
-          <div style={{ display:'flex', gap:10, alignItems:'center' }}>
-            <div style={{ position:'relative', cursor:'pointer' }}>
-              <Icon name="bell" size={22} color="var(--sage)"/>
-              <div style={{ position:'absolute', top:-2, right:-2, width:8, height:8, background:'var(--amber)', borderRadius:'50%', border:'2px solid var(--forest)' }}/>
+    <ParchmentBackdrop decorations="full">
+      <div className="screen" style={{ position: 'absolute', inset: 0 }}>
+        <div style={{
+          maxWidth: 540, margin: '0 auto',
+          padding: 'calc(28px + var(--safe-top)) 28px 40px',
+        }}>
+          <TopBar eyebrow={getGreeting()} greeting="Welcome back" name={name} onSignOut={signOut}/>
+
+          {/* ── Active course card ── */}
+          <div style={{
+            position: 'relative',
+            padding: '22px 22px 20px',
+            marginBottom: 24,
+            background: 'rgba(255,255,255,0.5)',
+            border: '1px solid rgba(26,58,42,0.15)',
+            animation: 'fadeUpSoft 0.6s ease 0.2s both',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontFamily: BODY,
+                  fontSize: 9, fontWeight: 700,
+                  color: course.color,
+                  letterSpacing: '0.34em',
+                  textTransform: 'uppercase',
+                  marginBottom: 8,
+                }}>
+                  ✦ In Progress
+                </div>
+                <h2 style={{
+                  fontFamily: DISPLAY,
+                  fontSize: 22,
+                  color: 'var(--forest)',
+                  fontWeight: 400,
+                  lineHeight: 1.2,
+                  letterSpacing: '-0.012em',
+                  margin: 0,
+                }}>
+                  {course.title}<span style={{ color: 'var(--moss)', fontStyle: 'italic' }}>.</span>
+                </h2>
+              </div>
+              <div style={{ fontSize: 34, opacity: 0.7, flexShrink: 0 }}>{course.icon}</div>
             </div>
-            <button onClick={signOut} style={{ background:'rgba(255,255,255,0.1)', border:'none', borderRadius:10, padding:'7px 10px', cursor:'pointer' }}>
-              <Icon name="logout" size={18} color="var(--sage)"/>
-            </button>
-          </div>
-        </div>
-      </div>
 
-      {/* Active course card */}
-      <div style={{ margin:'-52px 16px 0', position:'relative', zIndex:2, animation:'fadeUp 0.4s ease' }}>
-        <Card style={{ padding:20, boxShadow:'0 8px 32px rgba(26,58,42,0.18)' }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
-            <div>
-              <Badge text="In Progress"/>
-              <div style={{ fontFamily:"'Playfair Display', serif", fontSize:18, fontWeight:700, marginTop:8, lineHeight:1.2 }}>{course.title}</div>
-            </div>
-            <div style={{ fontSize:40 }}>{course.icon}</div>
-          </div>
-          <div style={{ display:'flex', justifyContent:'space-between', marginBottom:8 }}>
-            <span style={{ fontSize:13, color:'#888' }}>Module {completedModules} of {totalModules}</span>
-            <span style={{ fontSize:13, fontWeight:700, color:'var(--pine)' }}>{progress}%</span>
-          </div>
-          <ProgressBar value={progress} max={100}/>
-          <button onClick={() => onNavigate('learning')} style={{ width:'100%', marginTop:16, padding:'12px', background:'var(--forest)', color:'white', border:'none', borderRadius:12, fontSize:14, fontWeight:700, cursor:'pointer', fontFamily:"'DM Sans', sans-serif" }}>
-            Continue Learning →
-          </button>
-        </Card>
-      </div>
-
-      {/* Performance shortcut */}
-      <Card onClick={() => onNavigate('performance')}
-        style={{ margin:'12px 16px 0', padding:'14px 16px', display:'flex', alignItems:'center', gap:12, cursor:'pointer', animation:'fadeUp 0.4s ease 0.04s both', border:'1px solid var(--sand)' }}>
-        <div style={{ fontSize:28 }}>📊</div>
-        <div style={{ flex:1, minWidth:0 }}>
-          <div style={{ fontWeight:700, fontSize:14, color:'var(--charcoal)' }}>My Performance</div>
-          <div style={{ fontSize:11, color:'#999', marginTop:1 }}>Scores · topic mastery · attendance · rewards</div>
-        </div>
-        <Icon name="chevron" size={16} color="#bbb"/>
-      </Card>
-
-      {/* Stats */}
-      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, margin:'12px 16px 0', animation:'fadeUp 0.4s ease 0.06s both' }}>
-        <Card style={{ padding:16, textAlign:'center' }}>
-          <div style={{ fontSize:28, marginBottom:6 }}>📅</div>
-          <div style={{ fontWeight:700, fontSize:22, color:'var(--pine)' }}>{attendanceCount}</div>
-          <div style={{ fontSize:12, color:'#999', marginTop:2 }}>Sessions Attended</div>
-        </Card>
-        <Card style={{ padding:16, textAlign:'center' }}>
-          <div style={{ fontSize:28, marginBottom:6 }}>📚</div>
-          <div style={{ fontWeight:700, fontSize:22, color:'var(--earth)' }}>{completedModules}/{totalModules}</div>
-          <div style={{ fontSize:12, color:'#999', marginTop:2 }}>Modules Done</div>
-        </Card>
-        {batchTime && (
-          <Card style={{ padding:16, gridColumn:'1 / -1', display:'flex', alignItems:'center', gap:14 }}>
-            <div style={{ fontSize:32 }}>📡</div>
-            <div style={{ flex:1 }}>
-              <div style={{ fontWeight:700, color:'var(--amber)' }}>Next Live Session</div>
-              <div style={{ fontSize:12, color:'#999', marginTop:2 }}>{batchTime}</div>
-            </div>
-            <button onClick={() => onNavigate('attendance')} style={{ padding:'8px 16px', background:'var(--amber)', color:'white', border:'none', borderRadius:10, fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'DM Sans', sans-serif", whiteSpace:'nowrap' }}>
-              Attend
-            </button>
-          </Card>
-        )}
-      </div>
-
-      {/* Explore more */}
-      <div style={{ margin:'24px 16px 0', animation:'fadeUp 0.4s ease 0.1s both' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
-          <div style={{ fontFamily:"'Playfair Display', serif", fontSize:20, fontWeight:700 }}>Explore More</div>
-          <span onClick={() => onNavigate('courses')} style={{ fontSize:13, color:'var(--pine)', fontWeight:700, cursor:'pointer' }}>See all →</span>
-        </div>
-        {courses.filter(c => c.id !== course.id).slice(0, 2).map(c => (
-          <Card key={c.id} onClick={() => onNavigate('courseDetail', c)} style={{ marginBottom:12, display:'flex', alignItems:'center', gap:14, padding:16 }}>
-            <div style={{ width:52, height:52, borderRadius:14, background:`${c.color}18`, display:'flex', alignItems:'center', justifyContent:'center', fontSize:26, flexShrink:0 }}>{c.icon}</div>
-            <div style={{ flex:1, minWidth:0 }}>
-              <div style={{ fontWeight:700, fontSize:14, marginBottom:4, lineHeight:1.3 }}>{c.title}</div>
-              <div style={{ display:'flex', gap:8 }}>
-                <Badge text={c.mode} color={c.color} bg={`${c.color}15`}/>
-                <span style={{ fontSize:12, color:'#888', display:'flex', alignItems:'center', gap:3 }}><Icon name="clock" size={12} color="#bbb"/> {c.hours}</span>
+            {/* Progress */}
+            <div style={{ marginTop: 18 }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'baseline',
+                marginBottom: 6,
+              }}>
+                <span style={{
+                  fontFamily: BODY,
+                  fontSize: 10, fontWeight: 600,
+                  color: 'var(--moss)',
+                  letterSpacing: '0.22em',
+                  textTransform: 'uppercase',
+                }}>
+                  Module {completedModules} of {totalModules}
+                </span>
+                <span style={{
+                  fontFamily: DISPLAY,
+                  fontStyle: 'italic',
+                  fontSize: 18,
+                  color: 'var(--forest)',
+                  fontWeight: 500,
+                }}>
+                  {progress}%
+                </span>
+              </div>
+              <div style={{
+                background: 'rgba(26,58,42,0.1)',
+                height: 3,
+                position: 'relative',
+              }}>
+                <div style={{
+                  position: 'absolute', left: 0, top: 0,
+                  height: 3,
+                  background: 'var(--leaf)',
+                  width: `${progress}%`,
+                  transition: 'width 0.6s ease',
+                }}/>
               </div>
             </div>
-            <div style={{ textAlign:'right', flexShrink:0 }}>
-              <div style={{ fontWeight:700, color:'var(--forest)', fontSize:15 }}>₹{c.fee.toLocaleString()}</div>
-              <div style={{ fontSize:11, color:'#999', marginTop:2 }}>{c.seats - c.filled} seats</div>
+
+            <div style={{ marginTop: 20 }}>
+              <PrimaryButton onClick={() => onNavigate('learning')} label="Continue Learning"/>
             </div>
-          </Card>
-        ))}
+          </div>
+
+          {/* ── Performance shortcut ── */}
+          <button
+            onClick={() => onNavigate('performance')}
+            style={{
+              width: '100%',
+              background: 'transparent',
+              border: '1px solid rgba(26,58,42,0.15)',
+              padding: '16px 18px',
+              marginBottom: 16,
+              cursor: 'pointer',
+              borderRadius: 2,
+              textAlign: 'left',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 14,
+              animation: 'fadeUpSoft 0.6s ease 0.28s both',
+              transition: 'border-color 0.2s ease',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--forest)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = 'rgba(26,58,42,0.15)'; }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{
+                fontFamily: BODY,
+                fontSize: 9, fontWeight: 700,
+                color: 'var(--moss)',
+                letterSpacing: '0.34em',
+                textTransform: 'uppercase',
+                marginBottom: 4,
+              }}>
+                — Performance
+              </div>
+              <div style={{
+                fontFamily: DISPLAY,
+                fontStyle: 'italic',
+                fontSize: 16,
+                color: 'var(--forest)',
+                fontWeight: 500,
+              }}>
+                Your scores, topics & rewards
+              </div>
+            </div>
+            <span style={{
+              fontFamily: DISPLAY,
+              fontStyle: 'italic',
+              fontSize: 20,
+              color: 'var(--moss)',
+            }}>→</span>
+          </button>
+
+          {/* ── Mini stats ── */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            rowGap: 22, columnGap: 24,
+            marginBottom: 32,
+            animation: 'fadeUpSoft 0.6s ease 0.35s both',
+          }}>
+            <StatBlock eyebrow="Sessions Attended" figure={String(attendanceCount)} caption="live classes"/>
+            <StatBlock eyebrow="Modules Complete"  figure={`${completedModules}/${totalModules}`} caption={`${progress}% of course`}/>
+            {batchTime && (
+              <div style={{
+                gridColumn: '1 / -1',
+                paddingTop: 14,
+                borderTop: '1px solid var(--amber)',
+                display: 'flex',
+                alignItems: 'baseline',
+                justifyContent: 'space-between',
+                gap: 14,
+              }}>
+                <div>
+                  <div style={{
+                    fontFamily: BODY,
+                    fontSize: 9, fontWeight: 700,
+                    color: 'var(--amber)',
+                    letterSpacing: '0.34em',
+                    textTransform: 'uppercase',
+                    marginBottom: 6,
+                  }}>
+                    ✦ Next Live Session
+                  </div>
+                  <div style={{
+                    fontFamily: DISPLAY,
+                    fontStyle: 'italic',
+                    fontSize: 17,
+                    color: 'var(--forest)',
+                    fontWeight: 500,
+                  }}>
+                    {batchTime}
+                  </div>
+                </div>
+                <button
+                  onClick={() => onNavigate('attendance')}
+                  style={{
+                    fontFamily: DISPLAY,
+                    fontStyle: 'italic',
+                    fontSize: 14,
+                    color: 'var(--amber)',
+                    background: 'none',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    textDecorationStyle: 'dotted',
+                    textUnderlineOffset: '4px',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  attend →
+                </button>
+              </div>
+            )}
+          </div>
+
+          <Rule/>
+
+          {/* ── Explore more ── */}
+          <SectionHeader text="Explore More" action={{ label: 'see all', onTap: () => onNavigate('courses') }}/>
+
+          {courses.filter(c => c.id !== course.id).slice(0, 2).map((c, i) => (
+            <CompactCourseRow key={c.id} course={c} index={i + 1} isFirst={i === 0} onTap={() => onNavigate('courseDetail', c)}/>
+          ))}
+        </div>
       </div>
-    </div>
+    </ParchmentBackdrop>
   );
 };
 
-// ─── Main HomeScreen ──────────────────────────────────────────────────────────
+// ─── Shared sub-components ───────────────────────────────────────────────────
+
+interface StatBlockProps { eyebrow: string; figure: string; caption: string; }
+const StatBlock: React.FC<StatBlockProps> = ({ eyebrow, figure, caption }) => (
+  <div style={{
+    paddingTop: 14,
+    borderTop: '1px solid rgba(26,58,42,0.2)',
+  }}>
+    <div style={{
+      fontFamily: BODY,
+      fontSize: 9, fontWeight: 700,
+      color: 'var(--moss)',
+      letterSpacing: '0.32em',
+      textTransform: 'uppercase',
+      marginBottom: 6,
+    }}>{eyebrow}</div>
+    <div style={{
+      fontFamily: DISPLAY,
+      fontSize: 26,
+      fontWeight: 400,
+      color: 'var(--forest)',
+      lineHeight: 1.05,
+      letterSpacing: '-0.018em',
+    }}>{figure}</div>
+    <div style={{
+      fontFamily: DISPLAY,
+      fontStyle: 'italic',
+      fontSize: 12,
+      color: 'var(--charcoal)',
+      opacity: 0.55,
+      marginTop: 4,
+      lineHeight: 1.3,
+    }}>{caption}</div>
+  </div>
+);
+
+interface CompactCourseRowProps {
+  course: Course;
+  index: number;
+  isFirst: boolean;
+  onTap: () => void;
+}
+const CompactCourseRow: React.FC<CompactCourseRowProps> = ({ course, index, isFirst, onTap }) => (
+  <div
+    onClick={onTap}
+    role="button"
+    tabIndex={0}
+    onKeyDown={e => { if (e.key === 'Enter') onTap(); }}
+    style={{
+      display: 'flex',
+      alignItems: 'flex-start',
+      gap: 16,
+      padding: '18px 0',
+      borderTop: isFirst ? '1px solid rgba(26,58,42,0.18)' : 'none',
+      borderBottom: '1px solid rgba(26,58,42,0.18)',
+      cursor: 'pointer',
+      animation: `fadeUpSoft 0.5s ease ${0.5 + index * 0.06}s both`,
+    }}
+  >
+    <span style={{
+      fontFamily: DISPLAY, fontStyle: 'italic', fontSize: 16,
+      color: course.color, opacity: 0.85, minWidth: 28, lineHeight: 1.4,
+    }}>{toRoman(index).toLowerCase()}.</span>
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{
+        fontFamily: BODY, fontSize: 9, fontWeight: 700,
+        color: course.color, letterSpacing: '0.32em',
+        textTransform: 'uppercase', marginBottom: 6,
+      }}>{course.category}</div>
+      <div style={{
+        fontFamily: DISPLAY, fontSize: 17,
+        color: 'var(--forest)', fontWeight: 400,
+        lineHeight: 1.25, letterSpacing: '-0.01em',
+        marginBottom: 6,
+      }}>{course.title}<span style={{ color: 'var(--moss)', fontStyle: 'italic' }}>.</span></div>
+      <div style={{
+        fontFamily: BODY, fontSize: 10, fontWeight: 600,
+        color: 'var(--moss)', letterSpacing: '0.22em',
+        textTransform: 'uppercase',
+      }}>
+        {course.hours} · {course.mode}
+      </div>
+    </div>
+    <div style={{ flexShrink: 0, textAlign: 'right' }}>
+      <div style={{
+        fontFamily: DISPLAY, fontStyle: 'italic', fontSize: 18,
+        color: 'var(--forest)', fontWeight: 500, letterSpacing: '-0.012em',
+      }}>
+        ₹{course.fee.toLocaleString()}
+      </div>
+      <div style={{
+        fontFamily: BODY, fontSize: 10, fontWeight: 600,
+        color: 'var(--moss)', letterSpacing: '0.18em',
+        textTransform: 'uppercase', marginTop: 2, opacity: 0.7,
+      }}>
+        {course.seats - course.filled} seats
+      </div>
+    </div>
+  </div>
+);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Main router
+// ═══════════════════════════════════════════════════════════════════════════
 
 const HomeScreen: React.FC<Props> = ({ onNavigate }) => {
   const { user, signOut } = useAuth();
-  const [loading, setLoading]         = useState(true);
-  const [courses, setCourses]         = useState<Course[]>([]);
-  const [enrollment, setEnrollment]   = useState<EnrollmentData | null>(null);
+  const [loading, setLoading]       = useState(true);
+  const [courses, setCourses]       = useState<Course[]>([]);
+  const [enrollment, setEnrollment] = useState<EnrollmentData | null>(null);
 
   useEffect(() => {
     if (!user) return;
 
     const fetchData = async () => {
-      // Always fetch courses for explore section
       const { data: courseData } = await supabase
         .from('courses').select('*').eq('is_published', true).order('id').limit(5);
       if (courseData) setCourses(courseData.map(mapCourse));
 
-      // Admin doesn't need enrollment data
       if (user.role === 'admin') { setLoading(false); return; }
 
-      // Check if student is enrolled
       const { data: reg } = await supabase
         .from('registrations')
         .select('id, registration_id, access_granted, courses(*), batches(label, time_slot)')
@@ -375,18 +784,10 @@ const HomeScreen: React.FC<Props> = ({ onNavigate }) => {
 
       const course = mapCourse(reg.courses);
 
-      // Fetch progress and attendance in parallel
       const [progressRes, attendanceRes, totalModsRes] = await Promise.all([
-        supabase.from('user_progress')
-          .select('status')
-          .eq('user_id', user.id)
-          .eq('status', 'completed'),
-        supabase.from('attendance')
-          .select('id', { count: 'exact' })
-          .eq('registration_id', reg.id),
-        supabase.from('modules')
-          .select('id', { count: 'exact' })
-          .eq('course_id', course.id),
+        supabase.from('user_progress').select('status').eq('user_id', user.id).eq('status', 'completed'),
+        supabase.from('attendance').select('id', { count: 'exact', head: true }).eq('registration_id', reg.id),
+        supabase.from('modules').select('id', { count: 'exact', head: true }).eq('course_id', course.id),
       ]);
 
       setEnrollment({
@@ -407,21 +808,27 @@ const HomeScreen: React.FC<Props> = ({ onNavigate }) => {
     fetchData();
   }, [user]);
 
-  if (loading) return (
-    <div style={{ position:'fixed', inset:0, background:'var(--cream)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-      <Spinner size={32} color="var(--forest)"/>
-    </div>
-  );
+  if (loading) {
+    return (
+      <ParchmentBackdrop decorations="full">
+        <div style={{
+          position: 'absolute', inset: 0,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: DISPLAY, fontStyle: 'italic', fontSize: 15,
+          color: 'var(--moss)',
+        }}>
+          Loading your academy…
+        </div>
+      </ParchmentBackdrop>
+    );
+  }
 
-  // 1. Admin
   if (user?.role === 'admin')
     return <AdminHome onNavigate={onNavigate} signOut={signOut}/>;
 
-  // 2. Student enrolled
   if (enrollment)
     return <EnrolledHome name={user?.name ?? ''} enrollment={enrollment} courses={courses} onNavigate={onNavigate} signOut={signOut}/>;
 
-  // 3. Student not enrolled
   return <NotEnrolledHome name={user?.name ?? ''} courses={courses} onNavigate={onNavigate} signOut={signOut}/>;
 };
 
