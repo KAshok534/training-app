@@ -105,31 +105,31 @@ const CourseDetailScreen: React.FC<Props> = ({ course, onBack, onNavigate }) => 
       phone:      form.phone,
 
       onSuccess: async (response) => {
-        // 3. Save registration — access_granted:true unlocks Learning/Attendance/Certs immediately
-        const { data: reg, error: regError } = await supabase
-          .from('registrations')
-          .insert({
-            user_id:            user!.id,
-            course_id:          course.id,
-            batch_id:           selectedBatchId,
-            payment_status:     'paid',
-            payment_id:         response.razorpay_payment_id,
-            razorpay_order_id:  response.razorpay_order_id,
-            razorpay_signature: response.razorpay_signature,
-            access_granted:     true,
-          })
-          .select('registration_id')
-          .single();
+        // 3. Verify signature server-side and create registration via Edge Function.
+        //    The function uses the service role key to write access_granted=true after
+        //    HMAC-SHA256 verification — the browser never gets to set that flag directly.
+        const { data: verifyData, error: verifyError } = await supabase.functions.invoke(
+          'verify-razorpay-payment',
+          {
+            body: {
+              razorpay_order_id:   response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature:  response.razorpay_signature,
+              course_id:           course.id,
+              batch_id:            selectedBatchId,
+            },
+          },
+        );
 
-        if (!regError && reg) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          setRegCode((reg as any).registration_id as string);
+        if (!verifyError && verifyData?.registration_id) {
+          setRegCode(verifyData.registration_id as string);
           setJustEnrolled(true);
           closeSheet();
         } else {
-          // Payment captured but DB write failed — student must contact admin
+          // Payment captured but verification or registration write failed
+          const msg = verifyData?.error ?? verifyError?.message ?? 'verification failed';
           setPayError(
-            'Payment captured but registration failed. ' +
+            `Payment captured but registration failed (${msg}). ` +
             'Please contact director@aiwmr.org with your payment ID: ' +
             response.razorpay_payment_id,
           );
