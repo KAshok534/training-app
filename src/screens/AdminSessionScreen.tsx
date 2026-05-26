@@ -1,8 +1,16 @@
+/**
+ * AdminSessionScreen — editorial QR session manager for AIWMR admins.
+ *
+ * Generate session QR codes (6-char alphanumeric, no confusable chars),
+ * display them on screen for students to scan, and manage today's active
+ * sessions.
+ */
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { QRCodeSVG } from 'qrcode.react';
-import { Card, Spinner } from '../components/UI';
-import Icon from '../components/Icon';
+import ParchmentBackdrop from '../components/ParchmentBackdrop';
+import { DISPLAY, BODY } from '../components/AuthShell';
+import { PrimaryButton, InlineLink } from '../components/AuthForm';
 
 interface Props { onBack: () => void; }
 
@@ -21,7 +29,6 @@ const DURATIONS = [
 ];
 
 function generateCode(): string {
-  // Avoid confusable characters: 0/O, 1/I/L
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
 }
@@ -43,32 +50,32 @@ const AdminSessionScreen: React.FC<Props> = ({ onBack }) => {
   const [generating, setGenerating]         = useState(false);
   const [liveSessions, setLiveSessions]     = useState<LiveSession[]>([]);
   const [displaySession, setDisplaySession] = useState<LiveSession | null>(null);
-  const [tick, setTick]                     = useState(0); // for countdown refresh
+  const [tick, setTick]                     = useState(0);
   const [loading, setLoading]               = useState(true);
-  const [copyMsg, setCopyMsg]               = useState('');
+  const [copied, setCopied]                 = useState(false);
 
   const today = new Date().toISOString().split('T')[0];
 
-  // ── Refresh countdown every 30s ──────────────────────────────────────────
+  // Tick every 30s for countdown refresh
   useEffect(() => {
     const id = setInterval(() => setTick(t => t + 1), 30000);
     return () => clearInterval(id);
   }, []);
 
-  // ── Fetch courses ─────────────────────────────────────────────────────────
+  // Fetch courses
   useEffect(() => {
     supabase.from('courses').select('id, title, icon').order('id')
       .then(({ data }) => { if (data) setCourses(data); setLoading(false); });
   }, []);
 
-  // ── Fetch batches when course changes ─────────────────────────────────────
+  // Fetch batches when course changes
   useEffect(() => {
     if (!selectedCourse) { setBatches([]); setSelectedBatch(''); return; }
     supabase.from('batches').select('id, label, time_slot').eq('course_id', selectedCourse)
       .then(({ data }) => { if (data) setBatches(data); });
   }, [selectedCourse]);
 
-  // ── Fetch today's live sessions ───────────────────────────────────────────
+  // Fetch today's live sessions
   const fetchSessions = useCallback(async () => {
     const { data } = await supabase
       .from('session_qr_codes')
@@ -87,7 +94,6 @@ const AdminSessionScreen: React.FC<Props> = ({ onBack }) => {
       }));
       setLiveSessions(mapped);
 
-      // Keep displaySession in sync
       if (displaySession) {
         const updated = mapped.find(s => s.id === displaySession.id);
         if (!updated) setDisplaySession(null);
@@ -97,7 +103,6 @@ const AdminSessionScreen: React.FC<Props> = ({ onBack }) => {
 
   useEffect(() => { fetchSessions(); }, [fetchSessions, tick]);
 
-  // ── Generate new session ──────────────────────────────────────────────────
   const handleGenerate = async () => {
     if (!selectedCourse || !selectedBatch) return;
     setGenerating(true);
@@ -129,149 +134,339 @@ const AdminSessionScreen: React.FC<Props> = ({ onBack }) => {
     }
   };
 
-  // ── Revoke session ────────────────────────────────────────────────────────
   const handleRevoke = async (id: string) => {
-    await supabase
-      .from('session_qr_codes')
+    await supabase.from('session_qr_codes')
       .update({ expires_at: new Date().toISOString() })
       .eq('id', id);
     if (displaySession?.id === id) setDisplaySession(null);
     fetchSessions();
   };
 
-  // ── Copy code to clipboard ────────────────────────────────────────────────
   const copyCode = (code: string) => {
     navigator.clipboard.writeText(code).then(() => {
-      setCopyMsg('Copied!');
-      setTimeout(() => setCopyMsg(''), 2000);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     });
   };
 
-  const sel: React.CSSProperties = {
-    width:'100%', padding:'12px 14px', borderRadius:12,
-    border:'1.5px solid var(--sand)', background:'var(--white)',
-    fontSize:14, fontFamily:"'DM Sans', sans-serif", outline:'none', color:'var(--charcoal)',
+  const selectStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '12px 0',
+    border: 'none',
+    borderBottom: '1.5px solid rgba(26,58,42,0.25)',
+    background: 'transparent',
+    fontSize: 15,
+    fontFamily: DISPLAY,
+    fontStyle: 'italic',
+    color: 'var(--forest)',
+    outline: 'none',
+    appearance: 'none',
+    WebkitAppearance: 'none',
+    backgroundImage: `url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%234a7c59' d='M0 0l5 6 5-6z'/></svg>")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'right center',
+    paddingRight: 20,
+    cursor: 'pointer',
+  };
+
+  const fieldLabel: React.CSSProperties = {
+    fontFamily: BODY,
+    fontSize: 10, fontWeight: 600,
+    color: 'var(--moss)',
+    letterSpacing: '0.22em',
+    textTransform: 'uppercase',
+    display: 'block',
+    marginBottom: 6,
   };
 
   return (
-    <div className="screen">
-      {/* Header */}
-      <div style={{ background:'var(--forest)', padding:'20px 20px 24px', position:'sticky', top:0, zIndex:10 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-          <button onClick={onBack} style={{ background:'rgba(255,255,255,0.1)', border:'none', borderRadius:10, padding:'8px 10px', cursor:'pointer' }}>
-            <Icon name="back" size={18} color="white"/>
-          </button>
-          <div>
-            <div style={{ fontFamily:"'Playfair Display', serif", color:'white', fontSize:22, fontWeight:900 }}>Session Manager</div>
-            <div style={{ color:'var(--sage)', fontSize:12, marginTop:2 }}>Generate QR codes for live sessions</div>
+    <ParchmentBackdrop decorations="full">
+      <div className="screen" style={{ position: 'absolute', inset: 0 }}>
+        <div style={{
+          maxWidth: 540, margin: '0 auto',
+          padding: 'calc(24px + var(--safe-top)) 28px 40px',
+        }}>
+
+          {/* ── Top bar ── */}
+          <div style={{
+            display: 'flex', alignItems: 'center', marginBottom: 28,
+            animation: 'fadeUpSoft 0.5s ease 0s both',
+          }}>
+            <button onClick={onBack}
+              style={{
+                fontFamily: DISPLAY, fontStyle: 'italic', fontSize: 14,
+                color: 'var(--moss)',
+                background: 'rgba(255,255,255,0.5)',
+                border: '1px solid rgba(26,58,42,0.12)',
+                padding: '6px 14px', borderRadius: 2, cursor: 'pointer',
+                letterSpacing: '0.04em',
+              }}>↩ admin</button>
           </div>
-        </div>
-      </div>
 
-      <div style={{ padding:'16px' }}>
+          <div style={{
+            fontFamily: BODY,
+            fontSize: 10, fontWeight: 600,
+            color: 'var(--moss)',
+            letterSpacing: '0.34em',
+            textTransform: 'uppercase',
+            marginBottom: 14,
+            animation: 'fadeUpSoft 0.5s ease 0.05s both',
+          }}>
+            — Session Manager
+          </div>
 
-        {/* ── Active sessions today ── */}
-        {liveSessions.length > 0 && (
-          <Card style={{ padding:18, marginBottom:16 }}>
-            <div style={{ fontWeight:700, fontSize:14, marginBottom:12 }}>Today's Sessions</div>
-            {liveSessions.map(s => {
-              const expired = new Date(s.expires_at) <= new Date();
-              return (
-                <div key={s.id} style={{ display:'flex', alignItems:'center', gap:12, paddingBottom:12, marginBottom:12, borderBottom:'1px solid var(--sand)' }}>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <div style={{ fontWeight:600, fontSize:13, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.course_title}</div>
-                    <div style={{ fontSize:12, color:'#aaa', marginTop:2 }}>{s.batch_label}</div>
-                    <div style={{ fontSize:12, marginTop:4 }}>
-                      <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:15, color:'var(--forest)', letterSpacing:3 }}>{s.qr_code}</span>
-                      <span style={{ marginLeft:8, fontSize:11, color: expired ? 'var(--red)' : 'var(--leaf)', fontWeight:600 }}>
-                        {expired ? 'Expired' : timeLeft(s.expires_at)}
-                      </span>
+          <h1 style={{
+            fontFamily: DISPLAY,
+            fontSize: 'clamp(34px, 9vw, 50px)',
+            color: 'var(--forest)',
+            fontWeight: 400,
+            lineHeight: 0.96,
+            letterSpacing: '-0.022em',
+            margin: 0, marginBottom: 14,
+            fontVariationSettings: '"opsz" 144, "SOFT" 80',
+            animation: 'fadeUpSoft 0.6s ease 0.1s both',
+          }}>
+            Issue a<br/>
+            <em style={{ fontStyle: 'italic', color: 'var(--moss)', fontWeight: 400 }}>session code.</em>
+          </h1>
+
+          <p style={{
+            fontFamily: DISPLAY,
+            fontStyle: 'italic',
+            fontSize: 15,
+            color: 'var(--charcoal)',
+            opacity: 0.65,
+            margin: 0, marginBottom: 32,
+            animation: 'fadeUpSoft 0.5s ease 0.18s both',
+          }}>
+            Generate a QR code and 6-character text code that students can scan or type to mark attendance.
+          </p>
+
+          {/* ── QR Display (if active) ── */}
+          {displaySession && (() => {
+            const expired = new Date(displaySession.expires_at) <= new Date();
+            return (
+              <div style={{
+                position: 'relative',
+                padding: '24px 24px 22px',
+                marginBottom: 28,
+                background: 'rgba(106,173,120,0.06)',
+                border: '1px solid rgba(106,173,120,0.35)',
+                animation: 'fadeUpSoft 0.5s ease 0.25s both',
+                textAlign: 'center',
+              }}>
+                <div style={{
+                  position: 'absolute', top: -1, left: -1, right: -1, height: 3,
+                  background: expired ? 'var(--red)' : 'var(--leaf)',
+                }}/>
+
+                <div style={{
+                  fontFamily: BODY,
+                  fontSize: 9, fontWeight: 700,
+                  color: expired ? 'var(--red)' : 'var(--leaf)',
+                  letterSpacing: '0.4em',
+                  textTransform: 'uppercase',
+                  marginBottom: 8,
+                }}>
+                  {expired ? '⛔ Expired' : '✦ Live'}
+                </div>
+
+                <div style={{
+                  fontFamily: DISPLAY,
+                  fontStyle: 'italic',
+                  fontSize: 16,
+                  color: 'var(--forest)',
+                  fontWeight: 500,
+                  marginBottom: 4,
+                }}>
+                  {displaySession.course_title}
+                </div>
+                <div style={{
+                  fontFamily: BODY,
+                  fontSize: 10, fontWeight: 600,
+                  color: 'var(--moss)',
+                  letterSpacing: '0.22em',
+                  textTransform: 'uppercase',
+                  marginBottom: 20,
+                }}>
+                  {displaySession.batch_label} · {expired ? 'expired' : timeLeft(displaySession.expires_at)}
+                </div>
+
+                {/* QR */}
+                <div style={{
+                  display: 'inline-block',
+                  padding: 14,
+                  background: 'white',
+                  border: '1px solid rgba(26,58,42,0.12)',
+                  marginBottom: 22,
+                  opacity: expired ? 0.35 : 1,
+                }}>
+                  <QRCodeSVG value={displaySession.qr_code} size={180} fgColor="#1a3a2a"/>
+                </div>
+
+                {/* Text code */}
+                <div style={{
+                  fontFamily: BODY,
+                  fontSize: 9, fontWeight: 700,
+                  color: 'var(--moss)',
+                  letterSpacing: '0.34em',
+                  textTransform: 'uppercase',
+                  marginBottom: 8,
+                }}>
+                  Or this code
+                </div>
+                <div style={{
+                  fontFamily: 'ui-monospace, "JetBrains Mono", monospace',
+                  fontSize: 38, fontWeight: 500,
+                  letterSpacing: '0.18em',
+                  color: 'var(--forest)',
+                  marginBottom: 14,
+                }}>
+                  {displaySession.qr_code}
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 22 }}>
+                  <button
+                    onClick={() => copyCode(displaySession.qr_code)}
+                    style={{
+                      fontFamily: DISPLAY, fontStyle: 'italic', fontSize: 14,
+                      color: 'var(--moss)', background: 'none', border: 'none',
+                      padding: 0, cursor: 'pointer',
+                      textDecoration: 'underline', textDecorationStyle: 'dotted',
+                      textUnderlineOffset: '4px',
+                    }}>
+                    {copied ? '✓ copied' : '✦ copy code'}
+                  </button>
+                  <InlineLink onClick={() => setDisplaySession(null)}>
+                    close
+                  </InlineLink>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── Today's sessions ── */}
+          {liveSessions.length > 0 && !displaySession && (
+            <div style={{ marginBottom: 36, animation: 'fadeUpSoft 0.5s ease 0.3s both' }}>
+              <SectionHeader text="Today's Sessions"/>
+              {liveSessions.map((s, i) => {
+                const expired = new Date(s.expires_at) <= new Date();
+                return (
+                  <div key={s.id} style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: 16,
+                    padding: '16px 0',
+                    borderTop: i === 0 ? '1px solid rgba(26,58,42,0.15)' : 'none',
+                    borderBottom: '1px solid rgba(26,58,42,0.15)',
+                  }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontFamily: DISPLAY,
+                        fontSize: 15,
+                        color: 'var(--forest)',
+                        fontWeight: 400,
+                        lineHeight: 1.3,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                      }}>
+                        {s.course_title}
+                      </div>
+                      <div style={{
+                        fontFamily: BODY,
+                        fontSize: 10, fontWeight: 600,
+                        color: 'var(--moss)',
+                        letterSpacing: '0.22em',
+                        textTransform: 'uppercase',
+                        marginTop: 4,
+                        opacity: 0.85,
+                      }}>
+                        {s.batch_label}
+                      </div>
+                      <div style={{
+                        marginTop: 8,
+                        display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap',
+                      }}>
+                        <span style={{
+                          fontFamily: 'ui-monospace, "JetBrains Mono", monospace',
+                          fontSize: 16,
+                          color: 'var(--forest)',
+                          letterSpacing: '0.12em',
+                          fontWeight: 500,
+                        }}>{s.qr_code}</span>
+                        <span style={{
+                          fontFamily: DISPLAY,
+                          fontStyle: 'italic',
+                          fontSize: 12,
+                          color: expired ? 'var(--red)' : 'var(--leaf)',
+                        }}>
+                          {expired ? 'expired' : timeLeft(s.expires_at)}
+                        </span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end', flexShrink: 0 }}>
+                      <button onClick={() => setDisplaySession(s)}
+                        style={{
+                          fontFamily: DISPLAY, fontStyle: 'italic', fontSize: 13,
+                          color: 'var(--forest)', background: 'none', border: 'none',
+                          padding: 0, cursor: 'pointer',
+                          textDecoration: 'underline', textDecorationStyle: 'dotted',
+                          textUnderlineOffset: '4px',
+                        }}>show qr</button>
+                      {!expired && (
+                        <button onClick={() => handleRevoke(s.id)}
+                          style={{
+                            fontFamily: DISPLAY, fontStyle: 'italic', fontSize: 13,
+                            color: 'var(--red)', background: 'none', border: 'none',
+                            padding: 0, cursor: 'pointer',
+                            textDecoration: 'underline', textDecorationStyle: 'dotted',
+                            textUnderlineOffset: '4px',
+                          }}>end session</button>
+                      )}
                     </div>
                   </div>
-                  <div style={{ display:'flex', gap:6, flexShrink:0 }}>
-                    <button onClick={() => setDisplaySession(s)}
-                      style={{ padding:'7px 10px', background:'var(--forest)', color:'white', border:'none', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:"'DM Sans', sans-serif" }}>
-                      Show QR
-                    </button>
-                    {!expired && (
-                      <button onClick={() => handleRevoke(s.id)}
-                        style={{ padding:'7px 10px', background:'rgba(192,57,43,0.1)', color:'var(--red)', border:'1px solid rgba(192,57,43,0.2)', borderRadius:8, fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:"'DM Sans', sans-serif" }}>
-                        End
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </Card>
-        )}
+                );
+              })}
+            </div>
+          )}
 
-        {/* ── QR Display ── */}
-        {displaySession && (() => {
-          const expired = new Date(displaySession.expires_at) <= new Date();
-          return (
-            <Card style={{ padding:24, marginBottom:16, textAlign:'center', border:'2px solid var(--leaf)' }}>
-              <div style={{ fontSize:12, color:'#888', marginBottom:4 }}>{displaySession.course_title} · {displaySession.batch_label}</div>
-              <div style={{ fontSize:11, color: expired ? 'var(--red)' : 'var(--leaf)', fontWeight:700, marginBottom:16 }}>
-                {expired ? '⛔ Session Expired' : `⏱ ${timeLeft(displaySession.expires_at)}`}
-              </div>
+          {/* ── Decorative rule ── */}
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28,
+            animation: 'fadeUpSoft 0.5s ease 0.35s both',
+          }}>
+            <div style={{ flex: 1, height: 1, background: 'rgba(26,58,42,0.18)' }}/>
+            <span style={{ fontFamily: DISPLAY, fontSize: 13, color: 'var(--moss)', opacity: 0.7 }}>✦</span>
+            <div style={{ flex: 1, height: 1, background: 'rgba(26,58,42,0.18)' }}/>
+          </div>
 
-              {/* QR Code */}
-              <div style={{ display:'inline-block', padding:16, background:'white', borderRadius:16, boxShadow:'0 4px 20px rgba(0,0,0,0.1)', marginBottom:20, opacity: expired ? 0.4 : 1 }}>
-                <QRCodeSVG value={displaySession.qr_code} size={200} fgColor="var(--forest)"/>
-              </div>
-
-              {/* Text code */}
-              <div style={{ marginBottom:16 }}>
-                <div style={{ fontSize:11, color:'#aaa', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.1em' }}>Or enter this code</div>
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:12 }}>
-                  <span style={{ fontFamily:'monospace', fontSize:32, fontWeight:900, letterSpacing:8, color:'var(--forest)' }}>
-                    {displaySession.qr_code}
-                  </span>
-                  <button onClick={() => copyCode(displaySession.qr_code)}
-                    style={{ padding:'6px 12px', background:'var(--mist)', border:'1px solid var(--sand)', borderRadius:8, cursor:'pointer', fontSize:12, fontWeight:600, color:'var(--charcoal)', fontFamily:"'DM Sans', sans-serif" }}>
-                    {copyMsg || 'Copy'}
-                  </button>
-                </div>
-              </div>
-
-              <div style={{ fontSize:12, color:'#aaa' }}>
-                Share this QR or code during the live session. Students scan it to mark attendance.
-              </div>
-              <button onClick={() => setDisplaySession(null)}
-                style={{ marginTop:14, padding:'8px 20px', background:'var(--sand)', border:'none', borderRadius:10, cursor:'pointer', fontSize:13, fontWeight:600, fontFamily:"'DM Sans', sans-serif" }}>
-                Close
-              </button>
-            </Card>
-          );
-        })()}
-
-        {/* ── Generate new session ── */}
-        <Card style={{ padding:20 }}>
-          <div style={{ fontWeight:700, fontSize:15, marginBottom:16 }}>Generate New Session QR</div>
+          {/* ── Generate new ── */}
+          <SectionHeader text="Generate a New Code"/>
 
           {loading ? (
-            <div style={{ display:'flex', justifyContent:'center', padding:20 }}>
-              <Spinner size={24} color="var(--forest)"/>
+            <div style={{
+              fontFamily: DISPLAY, fontStyle: 'italic', fontSize: 14,
+              color: 'var(--moss)', textAlign: 'center', padding: '40px 0',
+            }}>
+              Loading courses…
             </div>
           ) : (
-            <>
-              {/* Course selector */}
-              <div style={{ marginBottom:14 }}>
-                <label style={{ fontSize:11, fontWeight:700, color:'var(--moss)', textTransform:'uppercase', letterSpacing:'0.08em', display:'block', marginBottom:6 }}>Course</label>
-                <select style={sel} value={selectedCourse} onChange={e => setSelectedCourse(Number(e.target.value) || '')}>
-                  <option value="">Select a course...</option>
+            <div style={{ animation: 'fadeUpSoft 0.5s ease 0.42s both' }}>
+              {/* Course */}
+              <div style={{ marginBottom: 22 }}>
+                <label style={fieldLabel}>Course</label>
+                <select style={selectStyle} value={selectedCourse} onChange={e => setSelectedCourse(Number(e.target.value) || '')}>
+                  <option value="">— select course</option>
                   {courses.map(c => (
-                    <option key={c.id} value={c.id}>{c.icon} {c.title}</option>
+                    <option key={c.id} value={c.id}>{c.title}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Batch selector */}
-              <div style={{ marginBottom:14 }}>
-                <label style={{ fontSize:11, fontWeight:700, color:'var(--moss)', textTransform:'uppercase', letterSpacing:'0.08em', display:'block', marginBottom:6 }}>Batch</label>
-                <select style={sel} value={selectedBatch} onChange={e => setSelectedBatch(Number(e.target.value) || '')} disabled={!selectedCourse}>
-                  <option value="">{selectedCourse ? 'Select batch...' : 'Select course first'}</option>
+              {/* Batch */}
+              <div style={{ marginBottom: 22 }}>
+                <label style={fieldLabel}>Batch</label>
+                <select style={selectStyle} value={selectedBatch} onChange={e => setSelectedBatch(Number(e.target.value) || '')} disabled={!selectedCourse}>
+                  <option value="">{selectedCourse ? '— select batch' : '— select course first'}</option>
                   {batches.map(b => (
                     <option key={b.id} value={b.id}>{b.label} · {b.time_slot}</option>
                   ))}
@@ -279,30 +474,61 @@ const AdminSessionScreen: React.FC<Props> = ({ onBack }) => {
               </div>
 
               {/* Duration */}
-              <div style={{ marginBottom:20 }}>
-                <label style={{ fontSize:11, fontWeight:700, color:'var(--moss)', textTransform:'uppercase', letterSpacing:'0.08em', display:'block', marginBottom:8 }}>Session Duration</label>
-                <div style={{ display:'flex', gap:8 }}>
-                  {DURATIONS.map(d => (
-                    <button key={d.hours} onClick={() => setDuration(d.hours)}
-                      style={{ flex:1, padding:'10px 4px', border:`1.5px solid ${duration === d.hours ? 'var(--forest)' : 'var(--sand)'}`, borderRadius:10, background: duration === d.hours ? 'var(--forest)' : 'var(--white)', color: duration === d.hours ? 'white' : 'var(--charcoal)', fontSize:12, fontWeight:600, cursor:'pointer', fontFamily:"'DM Sans', sans-serif" }}>
-                      {d.label}
-                    </button>
-                  ))}
+              <div style={{ marginBottom: 30 }}>
+                <label style={fieldLabel}>Session Duration</label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {DURATIONS.map(d => {
+                    const active = duration === d.hours;
+                    return (
+                      <button key={d.hours}
+                        onClick={() => setDuration(d.hours)}
+                        style={{
+                          flex: 1, padding: '11px 4px',
+                          background: active ? 'var(--forest)' : 'transparent',
+                          color:      active ? 'white'          : 'var(--moss)',
+                          border:     active ? 'none'           : '1px solid rgba(26,58,42,0.2)',
+                          fontFamily: BODY, fontSize: 11, fontWeight: 600,
+                          letterSpacing: '0.18em', textTransform: 'uppercase',
+                          cursor: 'pointer',
+                          borderRadius: 2,
+                          transition: 'all 0.2s ease',
+                        }}>
+                        {d.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              <button
+              <PrimaryButton
                 onClick={handleGenerate}
-                disabled={!selectedCourse || !selectedBatch || generating}
-                style={{ width:'100%', padding:'14px', background: (!selectedCourse || !selectedBatch) ? 'var(--sage)' : 'var(--forest)', color:'white', border:'none', borderRadius:14, fontSize:15, fontWeight:700, cursor: (!selectedCourse || !selectedBatch) ? 'not-allowed' : 'pointer', fontFamily:"'DM Sans', sans-serif", display:'flex', alignItems:'center', justifyContent:'center', gap:10 }}
-              >
-                {generating ? <Spinner size={18} color="white"/> : '🔐 Generate Session QR'}
-              </button>
-            </>
+                loading={generating}
+                label={!selectedCourse || !selectedBatch ? 'Select course & batch' : 'Generate Session Code'}
+                arrow="✦"
+              />
+            </div>
           )}
-        </Card>
+        </div>
       </div>
-    </div>
+    </ParchmentBackdrop>
   );
 };
+
+// ─── Section header ─────────────────────────────────────────────────────────
+
+const SectionHeader: React.FC<{ text: string }> = ({ text }) => (
+  <div style={{
+    display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18,
+  }}>
+    <span style={{
+      fontFamily: BODY,
+      fontSize: 10, fontWeight: 700,
+      color: 'var(--forest)',
+      letterSpacing: '0.36em',
+      textTransform: 'uppercase',
+    }}>{text}</span>
+    <div style={{ flex: 1, height: 1, background: 'rgba(26,58,42,0.18)' }}/>
+  </div>
+);
+
 export default AdminSessionScreen;
