@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#1a3a2a" />
+<meta name="description" content="Privacy Policy — AIWMR Training Academy" />
+<link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png" />
+<title>Privacy Policy · AIWMR Training Academy</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Fraunces:ital,opsz,wght,SOFT@0,9..144,400..700,0..100;1,9..144,400..700,0..100&display=swap" />
+
+<style>
+  :root {
+    --forest:   #1a3a2a;
+    --moss:     #4a7c59;
+    --cream:    #f7f3ec;
+    --charcoal: #2c2c2c;
+    --gold:     #c9a84c;
+    --display:  'Fraunces', 'Playfair Display', Georgia, serif;
+    --body:     'DM Sans', system-ui, sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--cream);
+    color: var(--charcoal);
+    font-family: var(--body);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    position: relative;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Paper grain noise */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    pointer-events: none; z-index: 0; opacity: 0.5;
+    background: url("data:image/svg+xml;utf8,<svg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.07 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  }
+
+  /* Topographic corner accent */
+  .topo {
+    position: fixed; top: -160px; right: -140px;
+    width: 520px; height: 520px;
+    opacity: 0.08; pointer-events: none; z-index: 0;
+  }
+  .topo ellipse { fill: none; stroke: #1a3a2a; stroke-width: 1.1; }
+
+  /* Layout */
+  .wrap {
+    position: relative;
+    z-index: 1;
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 48px 28px 80px;
+  }
+
+  /* Top bar */
+  .topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 48px;
+  }
+  .topbar a {
+    font-family: var(--display);
+    font-style: italic;
+    font-size: 14px;
+    color: var(--moss);
+    text-decoration: none;
+    background: rgba(255,255,255,0.5);
+    border: 1px solid rgba(26,58,42,0.12);
+    padding: 6px 14px;
+    letter-spacing: 0.04em;
+  }
+  .meta {
+    font-family: var(--body);
+    font-size: 9px;
+    font-weight: 500;
+    color: var(--moss);
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    text-align: right;
+    line-height: 1.8;
+    padding-top: 6px;
+  }
+  .meta span { opacity: 0.65; }
+
+  /* Headline block */
+  .eyebrow {
+    font-family: var(--body);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--moss);
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  h1 {
+    font-family: var(--display);
+    font-size: clamp(46px, 9vw, 72px);
+    color: var(--forest);
+    font-weight: 400;
+    line-height: 0.96;
+    letter-spacing: -0.022em;
+    margin: 0 0 18px;
+    font-variation-settings: '"opsz" 144, "SOFT" 80';
+  }
+  h1 em {
+    font-style: italic;
+    color: var(--moss);
+    font-weight: 400;
+  }
+  .lede {
+    font-family: var(--display);
+    font-style: italic;
+    font-size: 18px;
+    color: var(--charcoal);
+    opacity: 0.72;
+    line-height: 1.5;
+    margin: 0 0 36px;
+    max-width: 540px;
+  }
+
+  /* Decorative rule */
+  .rule {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 0 0 40px;
+  }
+  .rule hr {
+    flex: 1;
+    height: 1px;
+    background: rgba(26,58,42,0.18);
+    border: none;
+  }
+  .rule .ornament {
+    font-family: var(--display);
+    font-size: 14px;
+    color: var(--moss);
+    opacity: 0.7;
+  }
+
+  /* Section */
+  section { margin-bottom: 44px; }
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .section-head .label {
+    font-family: var(--body);
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--forest);
+    letter-spacing: 0.36em;
+    text-transform: uppercase;
+  }
+  .section-head .label .num {
+    color: var(--moss);
+    font-family: var(--display);
+    font-style: italic;
+    font-size: 16px;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+    text-transform: none;
+    margin-right: 10px;
+    vertical-align: -1px;
+  }
+  .section-head hr {
+    flex: 1;
+    height: 1px;
+    background: rgba(26,58,42,0.18);
+    border: none;
+  }
+
+  h2 {
+    font-family: var(--display);
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--forest);
+    margin: 0 0 14px;
+    line-height: 1.25;
+    letter-spacing: -0.005em;
+  }
+  h3 {
+    font-family: var(--display);
+    font-style: italic;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--moss);
+    margin: 22px 0 8px;
+  }
+  p {
+    font-family: var(--display);
+    font-size: 16px;
+    color: var(--charcoal);
+    opacity: 0.85;
+    line-height: 1.65;
+    margin: 0 0 14px;
+  }
+  ul {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 14px;
+    font-family: var(--display);
+    font-size: 16px;
+    color: var(--charcoal);
+    opacity: 0.85;
+    line-height: 1.7;
+  }
+  ul li {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 6px;
+  }
+  ul li::before {
+    content: '✦';
+    color: var(--moss);
+    font-size: 12px;
+    flex-shrink: 0;
+    line-height: 1.7;
+  }
+
+  strong, b {
+    font-family: var(--body);
+    font-weight: 700;
+    color: var(--forest);
+    font-style: normal;
+  }
+  a {
+    color: var(--forest);
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 3px;
+  }
+
+  /* Contact card */
+  .contact-card {
+    padding: 22px 22px 20px;
+    background: rgba(45,90,61,0.05);
+    border-left: 2px solid var(--moss);
+    margin-top: 12px;
+  }
+  .contact-card .contact-eyebrow {
+    font-family: var(--body);
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--moss);
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .contact-card .name {
+    font-family: var(--display);
+    font-style: italic;
+    font-size: 18px;
+    color: var(--forest);
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  .contact-card .role {
+    font-family: var(--body);
+    font-size: 11px;
+    color: var(--moss);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .contact-card a {
+    font-family: var(--body);
+    font-size: 13px;
+    color: var(--forest);
+    line-height: 1.8;
+    display: block;
+    text-decoration: none;
+    border-bottom: 1px solid var(--moss);
+    width: fit-content;
+    margin-bottom: 4px;
+  }
+
+  /* Footer */
+  footer {
+    margin-top: 64px;
+    padding-top: 32px;
+    border-top: 1px solid rgba(26,58,42,0.18);
+    text-align: center;
+    font-family: var(--display);
+    font-style: italic;
+    font-size: 12px;
+    color: var(--moss);
+    opacity: 0.7;
+    letter-spacing: 0.04em;
+  }
+
+  /* Effective date / version chip */
+  .version {
+    display: inline-block;
+    font-family: var(--body);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--moss);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    padding: 5px 12px;
+    background: rgba(255,255,255,0.5);
+    border: 1px solid rgba(26,58,42,0.18);
+    margin-bottom: 22px;
+  }
+
+  /* Table of contents */
+  .toc {
+    margin: 32px 0 48px;
+    padding: 22px 22px 18px;
+    background: rgba(255,255,255,0.45);
+    border: 1px solid rgba(26,58,42,0.12);
+  }
+  .toc-label {
+    font-family: var(--body);
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--moss);
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .toc ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    columns: 2;
+    column-gap: 22px;
+  }
+  @media (max-width: 540px) { .toc ol { columns: 1; } }
+  .toc ol li {
+    font-family: var(--display);
+    font-style: italic;
+    font-size: 14px;
+    line-height: 2;
+    break-inside: avoid;
+  }
+  .toc ol li a {
+    color: var(--charcoal);
+    opacity: 0.78;
+    text-decoration: none;
+    border-bottom: 1px dotted transparent;
+  }
+  .toc ol li a:hover { border-bottom-color: var(--moss); }
+  .toc ol li .num {
+    color: var(--moss);
+    font-weight: 500;
+    margin-right: 8px;
+  }
+</style>
+</head>
+<body>
+
+<svg class="topo" viewBox="0 0 400 400" aria-hidden="true">
+  <ellipse cx="200" cy="200" rx="32"  ry="42"/>
+  <ellipse cx="200" cy="200" rx="58"  ry="74"/>
+  <ellipse cx="200" cy="200" rx="86"  ry="108"/>
+  <ellipse cx="200" cy="200" rx="116" ry="144"/>
+  <ellipse cx="200" cy="200" rx="148" ry="182"/>
+  <ellipse cx="200" cy="200" rx="182" ry="222"/>
+</svg>
+
+<main class="wrap">
+
+  <div class="topbar">
+    <a href="/">↩ back to app</a>
+    <div class="meta">
+      AIWMR<br>
+      <span>Hyderabad · India</span>
+    </div>
+  </div>
+
+  <div class="eyebrow">— Privacy Policy</div>
+  <h1>How we handle<br><em>your data.</em></h1>
+
+  <p class="lede">
+    Ashrita Institute for Waste Management &amp; Research Pvt Ltd (&ldquo;AIWMR&rdquo;, &ldquo;we&rdquo;, &ldquo;our&rdquo;) operates the AIWMR Training Academy progressive web app. This policy describes what information we collect, why we collect it, who we share it with, and how you can exercise your rights over it.
+  </p>
+
+  <div class="version">Effective 23 May 2026 · Version 1.0</div>
+
+  <div class="rule">
+    <hr/><span class="ornament">✦</span><hr/>
+  </div>
+
+  <!-- Table of contents -->
+  <div class="toc">
+    <div class="toc-label">In this policy</div>
+    <ol>
+      <li><a href="#data"><span class="num">i.</span>Information we collect</a></li>
+      <li><a href="#purpose"><span class="num">ii.</span>How we use it</a></li>
+      <li><a href="#sharing"><span class="num">iii.</span>Third parties</a></li>
+      <li><a href="#storage"><span class="num">iv.</span>Storage &amp; security</a></li>
+      <li><a href="#rights"><span class="num">v.</span>Your rights</a></li>
+      <li><a href="#retention"><span class="num">vi.</span>Retention</a></li>
+      <li><a href="#cookies"><span class="num">vii.</span>Cookies &amp; storage</a></li>
+      <li><a href="#children"><span class="num">viii.</span>Children</a></li>
+      <li><a href="#changes"><span class="num">ix.</span>Changes to this policy</a></li>
+      <li><a href="#contact"><span class="num">x.</span>Contact &amp; grievance</a></li>
+    </ol>
+  </div>
+
+  <!-- 1. Information we collect -->
+  <section id="data">
+    <div class="section-head">
+      <span class="label"><span class="num">i.</span>Information we collect</span>
+      <hr/>
+    </div>
+    <p>We collect the minimum information needed to provide our training service.</p>
+
+    <h3>Information you provide</h3>
+    <ul>
+      <li><strong>Account details:</strong> full name, email address, phone number — when you register</li>
+      <li><strong>Optional profile information:</strong> organization, designation — for certificate personalization</li>
+      <li><strong>Password:</strong> stored as a one-way cryptographic hash; we never see your plaintext password</li>
+      <li><strong>Payment details:</strong> handled directly by Razorpay; we receive only a payment reference ID and a verification signature — never your card number, UPI ID, or banking credentials</li>
+    </ul>
+
+    <h3>Information generated through use</h3>
+    <ul>
+      <li><strong>Course progress:</strong> which modules you've opened, which slides you've viewed, completion status</li>
+      <li><strong>Assessment performance:</strong> your answers, scores, pass/fail status, reward eligibility</li>
+      <li><strong>Attendance records:</strong> live-session attendance marked via QR code scans</li>
+      <li><strong>Certificates:</strong> certificate IDs issued to you, issue dates</li>
+    </ul>
+
+    <h3>Technical information</h3>
+    <ul>
+      <li>Standard server logs (IP address, browser type, page requests, timestamps) used for security and abuse prevention</li>
+      <li>Service-worker cache data stored on your device for offline access</li>
+      <li>We do <strong>not</strong> use third-party advertising trackers, social media pixels, or behavioural analytics</li>
+    </ul>
+  </section>
+
+  <!-- 2. Purpose -->
+  <section id="purpose">
+    <div class="section-head">
+      <span class="label"><span class="num">ii.</span>How we use it</span>
+      <hr/>
+    </div>
+    <p>We process your information only for purposes you would reasonably expect from a training service.</p>
+    <ul>
+      <li>To create and maintain your account</li>
+      <li>To deliver course content and track your progress</li>
+      <li>To grade assessments, issue certificates, and identify reward recipients</li>
+      <li>To process payments and issue receipts</li>
+      <li>To send essential service emails (verification, password reset, certificate delivery, important announcements)</li>
+      <li>To contact you about reward eligibility (free internship or project report for ≥90% scores)</li>
+      <li>To prevent fraud, abuse, and unauthorized access</li>
+      <li>To comply with legal and regulatory obligations</li>
+    </ul>
+    <p>We do <strong>not</strong> sell your data to anyone. We do <strong>not</strong> use your data for advertising.</p>
+  </section>
+
+  <!-- 3. Third parties -->
+  <section id="sharing">
+    <div class="section-head">
+      <span class="label"><span class="num">iii.</span>Third parties</span>
+      <hr/>
+    </div>
+    <p>We rely on a small set of trusted infrastructure providers, each of whom processes your data strictly on our behalf.</p>
+
+    <h3>Supabase Inc. — backend database &amp; authentication</h3>
+    <p>Hosts the database (PostgreSQL) and provides authentication services. Your account, progress, assessments, attendance and certificates are stored here. Data resides in the South Asia (Mumbai) region.</p>
+
+    <h3>Razorpay Software Pvt Ltd — payment processing</h3>
+    <p>Handles all payment transactions for course enrollments. We never see your card or banking credentials. Razorpay's own privacy policy applies to your interactions with their checkout flow: <a href="https://razorpay.com/privacy" target="_blank" rel="noopener">razorpay.com/privacy</a>.</p>
+
+    <h3>Vercel Inc. — application hosting &amp; delivery</h3>
+    <p>Serves the application and its static assets globally. Standard request logs may be stored briefly for security and performance.</p>
+
+    <h3>Google Fonts</h3>
+    <p>Serves the typefaces (Fraunces, DM Sans, Playfair Display). Google may receive your IP address when fonts load.</p>
+
+    <p>We may also disclose information when required by law, valid legal process, or to protect the rights, safety, or property of AIWMR, our students, or the public.</p>
+  </section>
+
+  <!-- 4. Storage & security -->
+  <section id="storage">
+    <div class="section-head">
+      <span class="label"><span class="num">iv.</span>Storage &amp; security</span>
+      <hr/>
+    </div>
+    <ul>
+      <li>All data in transit is encrypted via TLS 1.2+</li>
+      <li>Your password is stored as a salted one-way hash; we cannot read or recover it</li>
+      <li>Database access is governed by row-level security: each user can only read their own records</li>
+      <li>Payment signatures are verified server-side using HMAC-SHA256 to prevent spoofing</li>
+      <li>Administrative access is limited to AIWMR personnel on a need-to-know basis</li>
+      <li>Primary data residency is the South Asia (Mumbai) region</li>
+    </ul>
+    <p>No system is perfectly secure. If we ever suffer a breach affecting your data, we will notify you and the relevant regulatory authority without undue delay, as required by the Digital Personal Data Protection Act, 2023.</p>
+  </section>
+
+  <!-- 5. Your rights -->
+  <section id="rights">
+    <div class="section-head">
+      <span class="label"><span class="num">v.</span>Your rights</span>
+      <hr/>
+    </div>
+    <p>Under Indian data protection law and our own commitment to transparency, you have the following rights:</p>
+    <ul>
+      <li><strong>Access:</strong> request a copy of the personal data we hold about you</li>
+      <li><strong>Correction:</strong> ask us to fix anything that is inaccurate or incomplete</li>
+      <li><strong>Deletion:</strong> request that your account and associated data be deleted (subject to legal retention obligations — see &sect; vi)</li>
+      <li><strong>Portability:</strong> receive your data in a structured machine-readable format</li>
+      <li><strong>Withdrawal of consent:</strong> withdraw consent for any optional processing</li>
+      <li><strong>Grievance redressal:</strong> escalate complaints to our grievance officer (see &sect; x)</li>
+    </ul>
+    <p>To exercise any of these rights, email <a href="mailto:director@aiwmr.org">director@aiwmr.org</a> from the address linked to your account. We will respond within 30 days.</p>
+  </section>
+
+  <!-- 6. Retention -->
+  <section id="retention">
+    <div class="section-head">
+      <span class="label"><span class="num">vi.</span>Retention</span>
+      <hr/>
+    </div>
+    <ul>
+      <li><strong>Account data:</strong> retained while your account is active, plus 12 months of inactivity, before automatic anonymization</li>
+      <li><strong>Course progress &amp; assessments:</strong> retained alongside your account</li>
+      <li><strong>Certificate records:</strong> retained <strong>indefinitely</strong> to allow verification of historical certificates by employers and accreditation bodies</li>
+      <li><strong>Payment records:</strong> retained for <strong>seven (7) years</strong> as required by the Indian Companies Act 2013 and tax law</li>
+      <li><strong>Server logs:</strong> retained for up to 90 days</li>
+    </ul>
+    <p>If you request deletion, we anonymize all personally identifiable fields while retaining the financial and certificate records noted above in an unlinkable form.</p>
+  </section>
+
+  <!-- 7. Cookies -->
+  <section id="cookies">
+    <div class="section-head">
+      <span class="label"><span class="num">vii.</span>Cookies &amp; storage</span>
+      <hr/>
+    </div>
+    <p>We use browser storage strictly for app functionality:</p>
+    <ul>
+      <li><strong>Authentication tokens</strong> — to keep you signed in</li>
+      <li><strong>Local preferences</strong> — e.g. whether you've dismissed the install banner or pre-course instructions</li>
+      <li><strong>Service-worker cache</strong> — to enable offline access and faster load times</li>
+    </ul>
+    <p>We do <strong>not</strong> use advertising cookies, tracking pixels, or cross-site identifiers.</p>
+  </section>
+
+  <!-- 8. Children -->
+  <section id="children">
+    <div class="section-head">
+      <span class="label"><span class="num">viii.</span>Children</span>
+      <hr/>
+    </div>
+    <p>The AIWMR Training Academy is intended for users aged 18 and above. We do not knowingly collect data from anyone under 18. If you believe a minor has registered, please contact us and we will delete the account.</p>
+  </section>
+
+  <!-- 9. Changes -->
+  <section id="changes">
+    <div class="section-head">
+      <span class="label"><span class="num">ix.</span>Changes to this policy</span>
+      <hr/>
+    </div>
+    <p>We may update this policy from time to time. If we make a change that materially affects how we handle your information, we will notify registered users by email and require renewed consent where the law requires it. The effective date at the top of this page always reflects the latest version.</p>
+  </section>
+
+  <!-- 10. Contact & grievance -->
+  <section id="contact">
+    <div class="section-head">
+      <span class="label"><span class="num">x.</span>Contact &amp; grievance</span>
+      <hr/>
+    </div>
+    <p>For any privacy question, complaint, or rights request, contact our grievance officer:</p>
+
+    <div class="contact-card">
+      <div class="contact-eyebrow">✦ Grievance Officer</div>
+      <div class="name">Dr. Sushanth Gade</div>
+      <div class="role">Director · AIWMR</div>
+      <a href="mailto:director@aiwmr.org">director@aiwmr.org</a>
+      <a href="tel:+919676975725">+91 96769 75725</a>
+    </div>
+
+    <p style="margin-top: 18px;">
+      <strong>Registered Office:</strong><br>
+      Ashrita Institute for Waste Management &amp; Research Pvt Ltd<br>
+      Hyderabad, Telangana, India<br>
+      <a href="https://www.aiwmr.org" target="_blank" rel="noopener">www.aiwmr.org</a>
+    </p>
+
+    <p>If you are not satisfied with our response, you may also approach the Data Protection Board of India under the Digital Personal Data Protection Act, 2023.</p>
+  </section>
+
+  <footer>
+    ✦&nbsp;&nbsp;Ashrita Institute for Waste Management &amp; Research<br>
+    <span style="opacity: 0.7;">Last updated 23 May 2026</span>
+  </footer>
+
+</main>
+
+</body>
+</html>

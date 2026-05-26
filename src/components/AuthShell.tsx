@@ -71,11 +71,23 @@ const AuthShell: React.FC<Props> = ({ children }) => (
           fontStyle: 'italic',
           fontSize: 11,
           color: 'var(--moss)',
-          opacity: 0.6,
+          opacity: 0.7,
           letterSpacing: '0.04em',
+          lineHeight: 1.8,
           animation: 'fadeUpSoft 0.7s ease 0.95s both',
         }}>
-          ✦{'  '}Ashrita Institute for Waste Management & Research
+          <div>✦&nbsp;&nbsp;Ashrita Institute for Waste Management &amp; Research</div>
+          <div style={{ marginTop: 6, opacity: 0.85 }}>
+            <a href="/privacy.html"
+              style={{
+                color: 'var(--moss)',
+                textDecoration: 'underline',
+                textDecorationStyle: 'dotted',
+                textUnderlineOffset: '3px',
+              }}>
+              privacy policy
+            </a>
+          </div>
         </div>
       </div>
     </div>
